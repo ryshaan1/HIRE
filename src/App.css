@@ -1,0 +1,104 @@
+.hire-container {
+  max-width: 1000px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+.hire-navbar {
+  background-color: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.hire-brand-text {
+  font-weight: 800;
+  font-size: 1.35rem;
+  letter-spacing: 0.5px;
+  color: #0f8f84;
+}
+
+.text-teal {
+  color: #0f8f84 !important;
+}
+
+.bg-teal {
+  background-color: #0f8f84 !important;
+  color: #ffffff !important;
+}
+
+.btn-teal {
+  background-color: #0f8f84 !important;
+  border-color: #0f8f84 !important;
+  color: #ffffff !important;
+}
+
+.btn-teal:hover,
+.btn-teal:focus {
+  background-color: #0c746b !important;
+  border-color: #0c746b !important;
+  color: #ffffff !important;
+}
+
+.btn-outline-teal {
+  color: #0f8f84 !important;
+  border-color: #0f8f84 !important;
+}
+
+.btn-outline-teal:hover,
+.btn-outline-teal:focus {
+  background-color: #0f8f84 !important;
+  color: #ffffff !important;
+}
+
+.text-navy {
+  color: #132c45 !important;
+}
+
+.hero-banner {
+  background-color: #132c45;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  background-size: cover !important;
+  background-position: center center !important;
+  background-repeat: no-repeat !important;
+  min-height: 480px;
+}
+
+.hire-card {
+  border-color: #e2e8f0 !important;
+  border-radius: 8px;
+  transition: transform 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.hire-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06) !important;
+}
+
+.hire-footer {
+  background-color: #ffffff;
+  border-top: 1px solid #e2e8f0;
+}
+
+.nav-link.active {
+  color: #0f8f84 !important;
+}
+
+.nav-pills .nav-link.active {
+  background-color: #0f8f84 !important;
+  color: #ffffff !important;
+}
+
+.form-check-input:checked {
+  background-color: #0f8f84;
+  border-color: #0f8f84;
+}
+
+.form-range::-webkit-slider-thumb {
+  background-color: #0f8f84;
+}
+
+.form-range::-moz-range-thumb {
+  background-color: #0f8f84;
+}
