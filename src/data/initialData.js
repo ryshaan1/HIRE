@@ -2,12 +2,14 @@ export const defaultUsers = [
   {
     name: "Master Admin Usman",
     email: "admin@hire.com",
+    password: "admin@123",
     role: "admin",
     isBanned: false
   },
   {
-    name: "Grand Harbour Manager",
+    name: "Hotel Owner / Manager",
     email: "manager@hire.com",
+    password: "manager@123",
     role: "manager",
     propertyId: 1,
     isBanned: false
@@ -15,6 +17,7 @@ export const defaultUsers = [
   {
     name: "Senior Food Critic Devansh",
     email: "critic@hire.com",
+    password: "critic@123",
     role: "critic",
     licenceNumber: "CRIT-8842",
     isApproved: true,
@@ -23,6 +26,7 @@ export const defaultUsers = [
   {
     name: "John Traveler",
     email: "customer@hire.com",
+    password: "customer@123",
     role: "customer",
     isBanned: false
   }
@@ -67,15 +71,4 @@ export const defaultReviews = [
   }
 ];
 
-export const defaultReports = [
-  {
-    id: 1,
-    propertyId: 10,
-    propertyName: "South Beach Ocean Grill",
-    reporterEmail: "customer@hire.com",
-    reason: "Hygiene concerns",
-    notes: "Kitchen sanitation and dining tables needed urgent attention during weekend rush.",
-    date: "2026-09-25",
-    status: "Pending"
-  }
-];
+export const defaultReports = [];
