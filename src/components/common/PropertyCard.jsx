@@ -4,7 +4,11 @@ import StarRating from "./StarRating.jsx";
 import { formatPriceInfo } from "../../utils/pricing.js";
 
 export default function PropertyCard({ property, isCompared, onToggleCompare }) {
-  const photo = property.images && property.images.length > 0 ? property.images[0] : null;
+  const photo = typeof property.images === "string" && property.images.length > 5 
+    ? property.images 
+    : (Array.isArray(property.images) && property.images.length > 0 
+      ? property.images[0] 
+      : (property.image || null));
   const priceInfo = formatPriceInfo(property);
   const isFlagged = property.status === "flagged";
   const isBanned = property.status === "banned";

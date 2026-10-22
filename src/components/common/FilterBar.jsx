@@ -22,7 +22,7 @@ export default function FilterBar({
           <input
             type="text"
             className="form-control form-control-sm"
-            placeholder="e.g. Grand Harbour, Serenity..."
+            placeholder="e.g. The Grand Oberoi Palace, Woodland Inn..."
             value={searchQuery}
             onChange={function(e) { onSearchChange(e.target.value); }}
           />
