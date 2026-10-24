@@ -2,8 +2,9 @@ import { createContext, useState, useEffect } from "react";
 import { getShared, setShared, getSession, setSession, subscribeToSync, recordUndoSnapshot } from "../utils/storage.js";
 import { initialProperties } from "../data/properties.js";
 import { defaultUsers, defaultReviews, defaultReports } from "../data/initialData.js";
-import { isValidEmail, isValidDemoPassword, getHotelDemoPassword } from "../utils/validators.js";
+import { isValidEmail } from "../utils/validators.js";
 import { getPropertyPriceUnit } from "../utils/pricing.js";
+import { fetchListings, registerUser, loginUser } from "../services/api.js";
 
 export const AuthContext = createContext(null);
 
@@ -15,33 +16,40 @@ export function AuthProvider({ children }) {
     return getShared("hire_users", defaultUsers);
   });
 
-  // Ensure default data exists with updated rate units and properties
   useEffect(function() {
     const existingProps = getShared("hire_properties", null);
-    if (!existingProps || !Array.isArray(existingProps) || existingProps.length === 0) {
-      setShared("hire_properties", initialProperties, false);
-    } else {
-      // Ensure existing cached properties have priceUnit assigned
-      let migrated = false;
-      const verified = existingProps.map(function(p) {
-        if (!p.priceUnit) {
-          migrated = true;
-          return { ...p, priceUnit: getPropertyPriceUnit(p) };
-        }
-        return p;
-      });
-      if (migrated) {
-        setShared("hire_properties", verified, false);
-      }
+    if (!existingProps || !Array.isArray(existingProps) || existingProps.length < 50) {
+      setShared("hire_properties", initialProperties, true);
     }
+
+    async function syncBackendData() {
+      try {
+        const res = await fetchListings();
+        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+          const merged = res.data.map(p => ({
+            ...p,
+            id: Number(p.id) || p.id,
+            priceUnit: p.type === 'Restaurant' ? '/ meal' : '/ night',
+            image: "",
+            images: []
+          }));
+          setShared("hire_properties", merged, true);
+        }
+      } catch (err) {}
+    }
+    syncBackendData();
 
     if (!localStorage.getItem("hire_users")) setShared("hire_users", defaultUsers, false);
     if (!localStorage.getItem("hire_reviews")) setShared("hire_reviews", defaultReviews, false);
     if (!localStorage.getItem("hire_bookings")) setShared("hire_bookings", [], false);
-    if (!localStorage.getItem("hire_reports")) setShared("hire_reports", defaultReports, false);
+    if (!localStorage.getItem("hire_reports_cleared_v1")) {
+      setShared("hire_reports", [], true);
+      localStorage.setItem("hire_reports_cleared_v1", "true");
+    } else if (!localStorage.getItem("hire_reports")) {
+      setShared("hire_reports", defaultReports, false);
+    }
   }, []);
 
-  // Listen to cross-tab updates to sync user status and approval
   useEffect(function() {
     const unsubscribe = subscribeToSync(function() {
       const freshUsers = getShared("hire_users", defaultUsers);
@@ -82,8 +90,24 @@ export function AuthProvider({ children }) {
     }
   }
 
-  function login(email, password) {
+  async function login(email, password) {
     const cleanEmail = String(email).trim().toLowerCase();
+
+    try {
+      const apiRes = await loginUser({ email: cleanEmail, password });
+      if (apiRes.success && apiRes.data) {
+        const u = {
+          name: apiRes.data.name,
+          email: apiRes.data.email,
+          role: apiRes.data.role,
+          isBanned: apiRes.data.status === 'Suspended',
+          _id: apiRes.data._id
+        };
+        setCurrentUser(u);
+        return { success: true, user: u };
+      }
+    } catch (e) {}
+
     const currentUsersList = getShared("hire_users", users);
     let matched = currentUsersList.find(function(u) { return u.email.toLowerCase() === cleanEmail; });
 
@@ -91,28 +115,22 @@ export function AuthProvider({ children }) {
       return { success: false, message: "This account has been banned by the administrator." };
     }
     if (matched) {
-      const demoValid = isValidDemoPassword(cleanEmail, password);
       const exactMatch = matched.password && matched.password === password;
-      if (!demoValid && !exactMatch) {
-        return { success: false, message: "Invalid password for this account." };
+      if (!exactMatch) {
+        return { success: false, message: "Invalid password." };
       }
       setCurrentUser(matched);
       return { success: true, user: matched };
     }
-    if (isValidEmail(cleanEmail) && isValidDemoPassword(cleanEmail, password)) {
-      const newUser = { name: cleanEmail.split("@")[0], email: cleanEmail, role: "customer", isBanned: false };
-      const nextUsers = [...currentUsersList, newUser];
-      saveUsers(nextUsers);
-      setCurrentUser(newUser);
-      return { success: true, user: newUser };
-    }
-    return { success: false, message: "Invalid email or demo password format (prefix@123)." };
+    return { success: false, message: "Invalid password." };
   }
 
   function loginAsPropertyManager(property, password) {
-    const expected = getHotelDemoPassword(property.name);
-    if (password !== expected && password !== "manager@123") {
-      return { success: false, message: `Invalid password. Expected first 3 letters + @123 (e.g. ${expected})` };
+    const slug = (property.name || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+    const hotelNamePass = `${slug}@123`;
+    const isValid = password === "hotel@123" || password === hotelNamePass || (property.password && password === property.password);
+    if (!isValid) {
+      return { success: false, message: "Invalid password." };
     }
     const mgrUser = {
       name: `${property.name} Manager`,
@@ -129,7 +147,7 @@ export function AuthProvider({ children }) {
     setCurrentUser(null);
   }
 
-  function signup(data) {
+  async function signup(data) {
     const cleanEmail = String(data.email).trim().toLowerCase();
     const currentUsersList = getShared("hire_users", users);
     const exists = currentUsersList.find(function(u) { return u.email.toLowerCase() === cleanEmail; });
@@ -147,6 +165,16 @@ export function AuthProvider({ children }) {
       isApproved: isCritic ? false : true,
       isBanned: false
     };
+
+    try {
+      await registerUser({
+        name: data.name,
+        email: cleanEmail,
+        password: data.password,
+        role: data.role || "customer"
+      });
+    } catch (e) {}
+
     const nextUsers = [...currentUsersList, newUser];
     saveUsers(nextUsers);
     setCurrentUser(newUser);
@@ -181,17 +209,38 @@ export function AuthProvider({ children }) {
     recordUndoSnapshot(`${approveStatus ? "Approved" : "Revoked"} critic ${email}`, { users: prevUsers });
 
     const nextUsers = prevUsers.map(function(u) {
-      return u.email.toLowerCase() === email.toLowerCase() ? { ...u, isApproved: approveStatus } : u;
+      return u.email.toLowerCase() === email.toLowerCase() ? { ...u, isApproved: approveStatus, status: approveStatus ? "Approved" : "Pending Approval" } : u;
     });
     saveUsers(nextUsers);
     if (currentUser && currentUser.email.toLowerCase() === email.toLowerCase()) {
-      setCurrentUser({ ...currentUser, isApproved: approveStatus });
+      setCurrentUser({ ...currentUser, isApproved: approveStatus, status: approveStatus ? "Approved" : "Pending Approval" });
     }
   }
 
-  return (
-    <AuthContext.Provider value={{ currentUser, users, login, loginAsPropertyManager, logout, signup, updateUser, banUser, approveCritic }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  function changeUserStatus(email, newStatus) {
+    const prevUsers = getShared("hire_users", users);
+    const nextUsers = prevUsers.map(function(u) {
+      if (u.email.toLowerCase() === email.toLowerCase()) {
+        const isValid = newStatus !== "Flagged" && newStatus !== "Suspended" && newStatus !== "Banned";
+        return { ...u, status: newStatus, valid: isValid };
+      }
+      return u;
+    });
+    saveUsers(nextUsers);
+  }
+
+  const value = {
+    currentUser,
+    users,
+    login,
+    loginAsPropertyManager,
+    logout,
+    signup,
+    updateUser,
+    banUser,
+    approveCritic,
+    changeUserStatus
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

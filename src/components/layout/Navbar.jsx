@@ -19,6 +19,7 @@ export default function Navbar() {
   useEffect(function() {
     window.addEventListener("hire_compare_updated", syncCompareCount);
     window.addEventListener("storage", syncCompareCount);
+
     return function() {
       window.removeEventListener("hire_compare_updated", syncCompareCount);
       window.removeEventListener("storage", syncCompareCount);
@@ -63,7 +64,7 @@ export default function Navbar() {
         </button>
 
         <div className="collapse navbar-collapse" id="hireNav">
-          <ul className="navbar-nav me-auto mb-2 mb-lg-0 gap-1">
+          <ul className="navbar-nav me-auto mb-2 mb-lg-0 gap-1 align-items-lg-center">
             <li className="nav-item">
               <NavLink className="nav-link" to="/">Home</NavLink>
             </li>
@@ -89,7 +90,7 @@ export default function Navbar() {
             {currentUser ? (
               <div className="d-flex align-items-center gap-3">
                 <span className="small text-muted">
-                  Logged in as <strong className="text-capitalize text-teal">{currentUser.role}</strong>
+                  Logged in as <strong className="text-capitalize text-teal">{currentUser.name || currentUser.role}</strong>
                 </span>
                 <button
                   type="button"
