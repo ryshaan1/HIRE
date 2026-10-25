@@ -51,7 +51,7 @@ export default function Home() {
     window.dispatchEvent(new Event("hire_compare_updated"));
   }
 
-  const featured = properties.slice(0, 3);
+  const featured = properties.slice(0, 6);
 
   return (
     <div className="hire-home">

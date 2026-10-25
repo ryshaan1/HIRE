@@ -12,7 +12,7 @@ export default function Search() {
   const [searchQuery, setSearchQuery] = useState("");
   const [locationQuery, setLocationQuery] = useState("");
   const [selectedType, setSelectedType] = useState("All");
-  const [maxBudget, setMaxBudget] = useState(350);
+  const [maxBudget, setMaxBudget] = useState(1000);
   const [selectedCuisine, setSelectedCuisine] = useState("All");
   const [minStay, setMinStay] = useState(0);
   const [compareList, setCompareList] = useState(function() {
@@ -54,7 +54,7 @@ export default function Search() {
     setSearchQuery("");
     setLocationQuery("");
     setSelectedType("All");
-    setMaxBudget(350);
+    setMaxBudget(1000);
     setSelectedCuisine("All");
     setMinStay(0);
   }

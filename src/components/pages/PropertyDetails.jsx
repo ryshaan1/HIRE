@@ -76,6 +76,9 @@ export default function PropertyDetails() {
   const priceInfo = formatPriceInfo(property);
   const isFlagged = property.status === "flagged";
   const isBanned = property.status === "banned";
+  const mainImage = typeof property.images === "string" && property.images.length > 5
+    ? property.images
+    : (Array.isArray(property.images) && property.images.length > 0 ? property.images[0] : property.image || null);
 
   return (
     <div className="hire-details py-3">
@@ -131,10 +134,10 @@ export default function PropertyDetails() {
       {compareMsg && <div className="alert alert-warning py-2 px-3 small text-center mb-3">{compareMsg}</div>}
 
       <div className="row g-2 mb-4">
-        <div className="col-12 col-md-8"><ImagePlaceholder height="280px" src={property.images && property.images[0]} /></div>
+        <div className="col-12 col-md-8"><ImagePlaceholder height="280px" src={mainImage} /></div>
         <div className="col-12 col-md-4 d-flex flex-column gap-2">
-          <ImagePlaceholder height="136px" src={property.images && property.images[1]} />
-          <ImagePlaceholder height="136px" src={property.images && property.images[2]} />
+          <ImagePlaceholder height="136px" src={mainImage} />
+          <ImagePlaceholder height="136px" src={mainImage} />
         </div>
       </div>
 
