@@ -5,6 +5,7 @@ import { getShared, setShared, subscribeToSync, broadcastAction } from "../../ut
 import { initialProperties } from "../../data/properties.js";
 import { formatPriceInfo } from "../../utils/pricing.js";
 import ImagePlaceholder from "../common/ImagePlaceholder.jsx";
+import { createBooking } from "../../services/api.js";
 
 export default function Booking() {
   const { id } = useParams();
@@ -92,6 +93,18 @@ export default function Booking() {
     setShared("hire_bookings", nextBookings);
     broadcastAction("BOOKING_CREATED", newBooking);
     setConfirmedBooking(newBooking);
+
+    createBooking({
+      customerName: currentUser.name || currentUser.email,
+      customerEmail: currentUser.email,
+      hotelId: String(property.id),
+      hotelName: property.name,
+      checkIn: new Date(checkIn),
+      checkOut: new Date(checkOut),
+      guests: Number(guests),
+      totalAmount: Number(grandTotal),
+      bookingStatus: "Pending"
+    }).catch(function() {});
   }
 
   return (
