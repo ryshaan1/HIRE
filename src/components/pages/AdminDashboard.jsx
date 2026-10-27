@@ -8,12 +8,17 @@ import ReportsTable from "../admin/ReportsTable.jsx";
 import FlagBanModal from "../admin/FlagBanModal.jsx";
 
 export default function AdminDashboard() {
-  const { users, approveCritic, banUser } = useContext(AuthContext);
+  const { users, approveCritic, banUser, changeUserStatus } = useContext(AuthContext);
   const [activeTab, setActiveTab] = useState("properties");
   const [properties, setProperties] = useState(function() {
     return getShared("hire_properties", initialProperties);
   });
   const [reports, setReports] = useState(function() {
+    if (!localStorage.getItem("hire_reports_cleared_v1")) {
+      setShared("hire_reports", [], false);
+      localStorage.setItem("hire_reports_cleared_v1", "true");
+      return [];
+    }
     return getShared("hire_reports", []);
   });
   const [modalTarget, setModalTarget] = useState(null);
@@ -22,7 +27,6 @@ export default function AdminDashboard() {
   });
   const [actionAlert, setActionAlert] = useState("");
 
-  // Real-time synchronization across all localhost tabs / windows
   useEffect(function() {
     const unsubscribe = subscribeToSync(function(event) {
       const freshProps = getShared("hire_properties", initialProperties);
@@ -149,7 +153,6 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* Pending Unflag Notification Banner */}
       {unflagRequests.length > 0 && (
         <div className="alert alert-warning border border-warning shadow-sm mb-3">
           <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
@@ -237,7 +240,7 @@ export default function AdminDashboard() {
             />
           )}
           {activeTab === "critics" && (
-            <CriticsTable users={users} onApproveCritic={approveCritic} onBanUser={banUser} />
+            <CriticsTable users={users} onApproveCritic={approveCritic} onBanUser={banUser} onUpdateUserStatus={changeUserStatus} />
           )}
           {activeTab === "reports" && (
             <ReportsTable reports={reports} onResolveReport={handleResolveReport} />

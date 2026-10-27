@@ -6,8 +6,8 @@ export default function RoleSelect() {
   const { login } = useContext(AuthContext);
   const navigate = useNavigate();
 
-  function handleQuickLogin(email, password, route) {
-    const res = login(email, password);
+  async function handleQuickLogin(email, password, route) {
+    const res = await login(email, password);
     if (res.success) {
       navigate(route);
     }
@@ -23,12 +23,12 @@ export default function RoleSelect() {
       desc: "Licensed hospitality reviewers. Multi-criteria ratings (cost, location, hygiene, food, amenities) with live formula scores."
     },
     {
-      title: "Manager",
+      title: "Hotel Owner / Manager",
       email: "manager@hire.com",
       password: "manager@123",
       route: "/manager",
-      badge: "The Grand Harbour Hotel",
-      desc: "Hotel managers. Configure amenities, photo uploads (file & Ctrl+V), up to 6 FAQs, discounts, and booking approvals."
+      badge: "Hotel Owner / Manager",
+      desc: "Configure venue amenities, photo uploads, FAQs, seasonal discounts, and review incoming reservation bookings."
     },
     {
       title: "Admin",

@@ -4,6 +4,7 @@ import { getShared, setShared, subscribeToSync, broadcastAction } from "../../ut
 import { initialProperties } from "../../data/properties.js";
 import { formatPriceInfo } from "../../utils/pricing.js";
 import CriticReviewModal from "../critic/CriticReviewModal.jsx";
+import { createReview } from "../../services/api.js";
 
 export default function CriticDashboard() {
   const { currentUser, updateUser } = useContext(AuthContext);
@@ -72,6 +73,13 @@ export default function CriticDashboard() {
 
     setShared("hire_properties", updatedProps);
     setProperties(updatedProps.filter(function(p) { return p.status !== "pending_admission"; }));
+    createReview({
+      hotelId: String(activeProperty.id),
+      hotelName: activeProperty.name,
+      userName: currentUser.name || "Critic",
+      rating: Number(data.rating),
+      comment: data.comment
+    }).catch(function() {});
     broadcastAction("REVIEW_SUBMITTED", { propertyId: activeProperty.id, propertyName: activeProperty.name, rating: data.rating });
     setActiveProperty(null);
   }

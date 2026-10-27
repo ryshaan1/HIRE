@@ -3,7 +3,6 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext.jsx";
 import { getShared, subscribeToSync } from "../../utils/storage.js";
 import { initialProperties } from "../../data/properties.js";
-import { getHotelDemoPassword } from "../../utils/validators.js";
 
 export default function Login() {
   const { login, loginAsPropertyManager } = useContext(AuthContext);
@@ -34,12 +33,11 @@ export default function Login() {
   }, []);
 
   const selectedProp = properties.find(function(p) { return String(p.id) === String(selectedPropertyId); });
-  const suggestedHotelPass = selectedProp ? getHotelDemoPassword(selectedProp.name) : "the@123";
 
-  function handleStandardLogin(e) {
+  async function handleStandardLogin(e) {
     e.preventDefault();
     if (!email || !password) { setErrorMsg("Please fill in both email and password."); return; }
-    const res = login(email, password);
+    const res = await login(email, password);
     if (!res.success) { setErrorMsg(res.message); return; }
     redirectByRole(res.user.role);
   }
@@ -91,7 +89,7 @@ export default function Login() {
               <input
                 type="email"
                 className="form-control form-control-sm"
-                placeholder="name@hire.com"
+                placeholder="Enter your email"
                 value={email}
                 onChange={function(e) { setEmail(e.target.value); }}
                 required
@@ -102,7 +100,7 @@ export default function Login() {
               <input
                 type="password"
                 className="form-control form-control-sm"
-                placeholder="prefix@123"
+                placeholder="Enter your password"
                 value={password}
                 onChange={function(e) { setPassword(e.target.value); }}
                 required
@@ -133,22 +131,18 @@ export default function Login() {
               <input
                 type="password"
                 className="form-control form-control-sm"
-                placeholder={`e.g. ${suggestedHotelPass} or manager@123`}
+                placeholder="Enter hotel password"
                 value={hotelPassword}
                 onChange={function(e) { setHotelPassword(e.target.value); }}
                 required
               />
-              <span className="form-text text-muted" style={{ fontSize: "0.75rem" }}>
-                Demo hint: <code>{suggestedHotelPass}</code>
-              </span>
             </div>
             <button type="submit" className="btn btn-teal w-100 py-2 mb-3 fw-semibold">Login as Venue Manager</button>
           </form>
         )}
 
         <div className="border-top pt-3 text-center">
-          <span className="small text-muted">Quick login hint: </span>
-          <Link to="/role-select" className="small text-teal text-decoration-none fw-semibold">One-Click Role Switcher &rarr;</Link>
+          <Link to="/role-select" className="small text-teal text-decoration-none fw-semibold">Role Switcher &rarr;</Link>
         </div>
       </div>
     </div>
