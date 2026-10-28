@@ -32,3 +32,10 @@ src/assets/*.jpeg
 public/*.png
 public/*.jpg
 public/*.jpeg
+
+# Unignore required bundled UI assets
+!src/assets/hero.png
+!src/assets/feature_find.jpg
+!src/assets/feature_compare.jpg
+!src/assets/feature_reviews.jpg
+!public/hero.png
