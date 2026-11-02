@@ -31,22 +31,6 @@ export default function Navbar() {
     navigate("/login");
   }
 
-  function getDashboardPath() {
-    if (!currentUser) {
-      return "/login";
-    }
-    if (currentUser.role === "admin") {
-      return "/admin";
-    }
-    if (currentUser.role === "manager") {
-      return "/manager";
-    }
-    if (currentUser.role === "critic") {
-      return "/critic";
-    }
-    return "/search";
-  }
-
   return (
     <nav className="navbar navbar-expand-lg hire-navbar shadow-sm sticky-top">
       <div className="container hire-container">
@@ -79,10 +63,35 @@ export default function Navbar() {
                 </span>
               </NavLink>
             </li>
-            {currentUser && currentUser.role !== "customer" && (
-              <li className="nav-item">
-                <NavLink className="nav-link" to={getDashboardPath()}>Dashboard</NavLink>
-              </li>
+
+            {currentUser && (
+              <>
+                {currentUser.role === "customer" && (
+                  <li className="nav-item">
+                    <NavLink className="nav-link" to="/user-dashboard">My Bookings</NavLink>
+                  </li>
+                )}
+                {currentUser.role === "critic" && (
+                  <>
+                    <li className="nav-item">
+                      <NavLink className="nav-link" to="/critic">Critic Workspace</NavLink>
+                    </li>
+                    <li className="nav-item">
+                      <NavLink className="nav-link" to="/user-dashboard">My Stays &amp; Ledger</NavLink>
+                    </li>
+                  </>
+                )}
+                {currentUser.role === "manager" && (
+                  <li className="nav-item">
+                    <NavLink className="nav-link" to="/manager">Manager Dashboard</NavLink>
+                  </li>
+                )}
+                {currentUser.role === "admin" && (
+                  <li className="nav-item">
+                    <NavLink className="nav-link" to="/admin">Admin Console</NavLink>
+                  </li>
+                )}
+              </>
             )}
           </ul>
 

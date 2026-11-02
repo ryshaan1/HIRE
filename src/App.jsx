@@ -11,7 +11,7 @@ import Booking from "./components/pages/Booking.jsx";
 import Compare from "./components/pages/Compare.jsx";
 import Login from "./components/pages/Login.jsx";
 import Signup from "./components/pages/Signup.jsx";
-import RoleSelect from "./components/pages/RoleSelect.jsx";
+import UserDashboard from "./components/pages/UserDashboard.jsx";
 import CriticDashboard from "./components/pages/CriticDashboard.jsx";
 import ManagerDashboard from "./components/pages/ManagerDashboard.jsx";
 import AdminDashboard from "./components/pages/AdminDashboard.jsx";
@@ -45,6 +45,14 @@ export default function App() {
                     </ProtectedRoute>
                   }
                 />
+                <Route
+                  path="/user-dashboard"
+                  element={
+                    <ProtectedRoute>
+                      <UserDashboard />
+                    </ProtectedRoute>
+                  }
+                />
 
                 <Route
                   path="/critic"
@@ -73,7 +81,7 @@ export default function App() {
 
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<Signup />} />
-                <Route path="/role-select" element={<RoleSelect />} />
+                <Route path="/role-select" element={<Navigate to="/login" replace />} />
 
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>

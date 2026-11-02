@@ -21,12 +21,12 @@ export default function PropertyCard({ property, isCompared, onToggleCompare }) 
           <span className="badge bg-teal">{property.type}</span>
           {isFlagged && (
             <span className="badge bg-warning text-dark border shadow-sm" title={property.flagReason || "Flagged"}>
-              ⚠️ Flagged: {property.flagReason || "Advisory"}
+              Flagged: {property.flagReason || "Advisory"}
             </span>
           )}
           {isBanned && (
             <span className="badge bg-danger shadow-sm" title={property.banReason || "Banned"}>
-              🚫 BANNED: {property.banReason || "Policy Violation"}
+              BANNED: {property.banReason || "Policy Violation"}
             </span>
           )}
           {priceInfo.hasDiscount && !isBanned && (
@@ -62,16 +62,16 @@ export default function PropertyCard({ property, isCompared, onToggleCompare }) 
 
         <div>
           <div className="mb-3">
-            <div className="d-flex align-items-baseline gap-1">
+            <div className="d-flex flex-wrap align-items-baseline gap-1">
               {priceInfo.hasDiscount ? (
                 <>
-                  <span className="fs-5 fw-bold text-teal">${priceInfo.discountedPrice}</span>
-                  <span className="small text-muted text-decoration-line-through">${priceInfo.price}</span>
+                  <span className="fs-6 fw-bold text-teal">{priceInfo.displayPrice}</span>
+                  <span className="small text-muted text-decoration-line-through">{priceInfo.originalDisplayPrice}</span>
                   <span className="small text-muted">{priceInfo.unitDisplay}</span>
                 </>
               ) : (
                 <>
-                  <span className="fs-5 fw-bold text-teal">${priceInfo.price}</span>
+                  <span className="fs-6 fw-bold text-teal">{priceInfo.displayPrice}</span>
                   <span className="small text-muted">{priceInfo.unitDisplay}</span>
                 </>
               )}

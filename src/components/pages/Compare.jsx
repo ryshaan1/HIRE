@@ -2,6 +2,9 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { getShared, getSession, setSession, subscribeToSync } from "../../utils/storage.js";
 import { initialProperties } from "../../data/properties.js";
+import { formatPriceInfo } from "../../utils/pricing.js";
+import ImagePlaceholder from "../common/ImagePlaceholder.jsx";
+import StarRating from "../common/StarRating.jsx";
 
 export default function Compare() {
   const navigate = useNavigate();
@@ -58,147 +61,148 @@ export default function Compare() {
     saveCompare(next);
   }
 
-  function handleClear() {
-    saveCompare([]);
+  function handleRemove(slotIndex) {
+    const next = [...compareList];
+    next.splice(slotIndex, 1);
+    saveCompare(next);
   }
 
-  const item1 = compareList[0] || null;
-  const item2 = compareList[1] || null;
+  const p1 = compareList[0] || null;
+  const p2 = compareList[1] || null;
+
+  function renderSlot(prop, slotIndex) {
+    return (
+      <div className="card shadow-sm border rounded bg-white p-3 h-100">
+        <div className="mb-3">
+          <select
+            className="form-select form-select-sm"
+            value={prop ? prop.id : ""}
+            onChange={function(e) { handleSelect(slotIndex, e.target.value); }}
+          >
+            <option value="">-- Choose property to compare --</option>
+            {allProperties.map(function(item) {
+              return (
+                <option key={item.id} value={item.id}>
+                  {item.name} ({item.city}, {item.country})
+                </option>
+              );
+            })}
+          </select>
+        </div>
+
+        {prop ? (
+          <div>
+            <div className="position-relative mb-2">
+              <ImagePlaceholder height="140px" src={Array.isArray(prop.images) && prop.images.length > 0 ? prop.images[0] : prop.image} />
+              <button
+                type="button"
+                className="btn btn-sm btn-danger position-absolute top-0 end-0 m-1 py-0 px-1"
+                onClick={function() { handleRemove(slotIndex); }}
+              >
+                &times;
+              </button>
+            </div>
+            <h6 className="fw-bold text-navy mb-1">{prop.name}</h6>
+            <div className="small text-muted mb-2">{prop.city}, {prop.country} &bull; {prop.type}</div>
+            <div className="d-flex align-items-center gap-1 mb-2">
+              <StarRating rating={prop.rating} />
+              <span className="small fw-semibold">{prop.rating > 0 ? Number(prop.rating).toFixed(1) : "New"}</span>
+            </div>
+            <div className="mb-3">
+              <span className="fw-bold text-teal">{formatPriceInfo(prop).displayPrice}</span>
+              <span className="small text-muted">{formatPriceInfo(prop).unitDisplay}</span>
+            </div>
+            <button
+              type="button"
+              className="btn btn-sm btn-teal w-100"
+              onClick={function() { navigate(`/property/${prop.id}`); }}
+            >
+              Inspect Details
+            </button>
+          </div>
+        ) : (
+          <div className="text-center text-muted py-5 small">
+            Select a property from the dropdown above to benchmark specifications.
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  const commonAmenities = ["Free WiFi", "Pool", "Gym", "Restaurant", "Parking", "Room Service", "Bar", "Spa"];
 
   return (
-    <div style={{ maxWidth: "880px", margin: "24px auto", padding: "16px", fontFamily: "sans-serif" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", borderBottom: "2px solid #333", paddingBottom: "10px" }}>
+    <div className="hire-compare py-3">
+      <div className="d-flex justify-content-between align-items-center mb-3">
         <div>
-          <h2 style={{ margin: "0 0 4px 0", fontSize: "1.4rem", color: "#111" }}>Hotel Comparison Tool</h2>
-          <p style={{ margin: 0, fontSize: "0.85rem", color: "#666" }}>Select any two properties to compare key parameters side by side.</p>
+          <h4 className="fw-bold text-navy mb-0">Side-by-Side Venue Comparison</h4>
+          <span className="small text-muted">Benchmark rates, ratings, and amenities across venues</span>
         </div>
-        {(item1 || item2) && (
-          <button
-            type="button"
-            onClick={handleClear}
-            style={{ padding: "6px 12px", fontSize: "0.85rem", cursor: "pointer", background: "#f5f5f5", border: "1px solid #aaa", borderRadius: "3px" }}
-          >
-            Reset
+        {compareList.length > 0 && (
+          <button type="button" className="btn btn-sm btn-outline-danger" onClick={function() { saveCompare([]); }}>
+            Clear Comparison
           </button>
         )}
       </div>
 
-      <div style={{ display: "flex", gap: "16px", marginBottom: "20px", background: "#fafafa", border: "1px solid #ccc", padding: "12px", borderRadius: "4px" }}>
-        <div style={{ flex: 1 }}>
-          <label style={{ display: "block", fontSize: "0.85rem", fontWeight: "bold", marginBottom: "6px" }}>Select First Hotel:</label>
-          <select
-            value={item1 ? item1.id : ""}
-            onChange={function(e) { handleSelect(0, e.target.value); }}
-            style={{ width: "100%", padding: "6px", fontSize: "0.85rem", border: "1px solid #999", borderRadius: "3px" }}
-          >
-            <option value="">-- Choose Hotel 1 --</option>
-            {allProperties.map(function(p) {
-              return (
-                <option key={p.id} value={p.id}>
-                  {p.name} ({p.city})
-                </option>
-              );
-            })}
-          </select>
-        </div>
-
-        <div style={{ flex: 1 }}>
-          <label style={{ display: "block", fontSize: "0.85rem", fontWeight: "bold", marginBottom: "6px" }}>Select Second Hotel:</label>
-          <select
-            value={item2 ? item2.id : ""}
-            onChange={function(e) { handleSelect(1, e.target.value); }}
-            style={{ width: "100%", padding: "6px", fontSize: "0.85rem", border: "1px solid #999", borderRadius: "3px" }}
-          >
-            <option value="">-- Choose Hotel 2 --</option>
-            {allProperties.map(function(p) {
-              return (
-                <option key={p.id} value={p.id}>
-                  {p.name} ({p.city})
-                </option>
-              );
-            })}
-          </select>
-        </div>
+      <div className="row g-3 mb-4">
+        <div className="col-12 col-md-6">{renderSlot(p1, 0)}</div>
+        <div className="col-12 col-md-6">{renderSlot(p2, 1)}</div>
       </div>
 
-      {item1 && item2 ? (
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", border: "1px solid #999", fontSize: "0.9rem" }}>
-            <thead>
-              <tr style={{ background: "#eee", textAlign: "left" }}>
-                <th style={{ border: "1px solid #ccc", padding: "10px", width: "24%" }}>Attribute</th>
-                <th style={{ border: "1px solid #ccc", padding: "10px", width: "38%", fontWeight: "bold" }}>{item1.name}</th>
-                <th style={{ border: "1px solid #ccc", padding: "10px", width: "38%", fontWeight: "bold" }}>{item2.name}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td style={{ border: "1px solid #ccc", padding: "8px 10px", fontWeight: "bold", background: "#fcfcfc" }}>ID</td>
-                <td style={{ border: "1px solid #ccc", padding: "8px 10px" }}>{item1.id}</td>
-                <td style={{ border: "1px solid #ccc", padding: "8px 10px" }}>{item2.id}</td>
-              </tr>
-              <tr>
-                <td style={{ border: "1px solid #ccc", padding: "8px 10px", fontWeight: "bold", background: "#fcfcfc" }}>Type / Category</td>
-                <td style={{ border: "1px solid #ccc", padding: "8px 10px" }}>{item1.type || "Hotel"}</td>
-                <td style={{ border: "1px solid #ccc", padding: "8px 10px" }}>{item2.type || "Hotel"}</td>
-              </tr>
-              <tr>
-                <td style={{ border: "1px solid #ccc", padding: "8px 10px", fontWeight: "bold", background: "#fcfcfc" }}>City</td>
-                <td style={{ border: "1px solid #ccc", padding: "8px 10px" }}>{item1.city}</td>
-                <td style={{ border: "1px solid #ccc", padding: "8px 10px" }}>{item2.city}</td>
-              </tr>
-              <tr>
-                <td style={{ border: "1px solid #ccc", padding: "8px 10px", fontWeight: "bold", background: "#fcfcfc" }}>Country</td>
-                <td style={{ border: "1px solid #ccc", padding: "8px 10px" }}>{item1.country}</td>
-                <td style={{ border: "1px solid #ccc", padding: "8px 10px" }}>{item2.country}</td>
-              </tr>
-              <tr>
-                <td style={{ border: "1px solid #ccc", padding: "8px 10px", fontWeight: "bold", background: "#fcfcfc" }}>Price (per average dish/stay)</td>
-                <td style={{ border: "1px solid #ccc", padding: "8px 10px", fontWeight: "bold" }}>{item1.price} {item1.priceunit || "USD"}</td>
-                <td style={{ border: "1px solid #ccc", padding: "8px 10px", fontWeight: "bold" }}>{item2.price} {item2.priceunit || "USD"}</td>
-              </tr>
-              <tr>
-                <td style={{ border: "1px solid #ccc", padding: "8px 10px", fontWeight: "bold", background: "#fcfcfc" }}>Rating</td>
-                <td style={{ border: "1px solid #ccc", padding: "8px 10px" }}>{Number(item1.rating || 0) === 0 ? "0 (NA)" : item1.rating}</td>
-                <td style={{ border: "1px solid #ccc", padding: "8px 10px" }}>{Number(item2.rating || 0) === 0 ? "0 (NA)" : item2.rating}</td>
-              </tr>
-              <tr>
-                <td style={{ border: "1px solid #ccc", padding: "8px 10px", fontWeight: "bold", background: "#fcfcfc" }}>Status</td>
-                <td style={{ border: "1px solid #ccc", padding: "8px 10px" }}>{item1.status}</td>
-                <td style={{ border: "1px solid #ccc", padding: "8px 10px" }}>{item2.status}</td>
-              </tr>
-              <tr>
-                <td style={{ border: "1px solid #ccc", padding: "8px 10px", fontWeight: "bold", background: "#fcfcfc" }}>Manager Email</td>
-                <td style={{ border: "1px solid #ccc", padding: "8px 10px" }}>{item1.managerEmail || "N/A"}</td>
-                <td style={{ border: "1px solid #ccc", padding: "8px 10px" }}>{item2.managerEmail || "N/A"}</td>
-              </tr>
-              <tr>
-                <td style={{ border: "1px solid #ccc", padding: "8px 10px", fontWeight: "bold", background: "#fcfcfc" }}>Booking</td>
-                <td style={{ border: "1px solid #ccc", padding: "8px 10px" }}>
-                  <button
-                    type="button"
-                    onClick={function() { navigate(`/booking/${item1.id}`); }}
-                    style={{ padding: "6px 12px", background: "#1f6f78", color: "#fff", border: "1px solid #14494f", borderRadius: "3px", cursor: "pointer", fontSize: "0.85rem" }}
-                  >
-                    Book Now
-                  </button>
-                </td>
-                <td style={{ border: "1px solid #ccc", padding: "8px 10px" }}>
-                  <button
-                    type="button"
-                    onClick={function() { navigate(`/booking/${item2.id}`); }}
-                    style={{ padding: "6px 12px", background: "#1f6f78", color: "#fff", border: "1px solid #14494f", borderRadius: "3px", cursor: "pointer", fontSize: "0.85rem" }}
-                  >
-                    Book Now
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <div style={{ padding: "20px", border: "1px dashed #aaa", textAlign: "center", color: "#666", background: "#fafafa" }}>
-          Please select both hotels from the dropdown menus above to generate the comparison table.
+      {p1 && p2 && (
+        <div className="card shadow-sm border rounded bg-white p-3">
+          <h6 className="fw-bold text-navy mb-3">Specification Benchmark Matrix</h6>
+          <div className="table-responsive">
+            <table className="table table-bordered table-sm align-middle small mb-0">
+              <thead className="table-light">
+                <tr>
+                  <th style={{ width: "30%" }}>Feature</th>
+                  <th style={{ width: "35%" }}>{p1.name}</th>
+                  <th style={{ width: "35%" }}>{p2.name}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td className="fw-semibold">Rate & Currency</td>
+                  <td className="text-teal fw-bold">{formatPriceInfo(p1).displayPrice} {formatPriceInfo(p1).unitDisplay}</td>
+                  <td className="text-teal fw-bold">{formatPriceInfo(p2).displayPrice} {formatPriceInfo(p2).unitDisplay}</td>
+                </tr>
+                <tr>
+                  <td className="fw-semibold">Location</td>
+                  <td>{p1.city}, {p1.country}</td>
+                  <td>{p2.city}, {p2.country}</td>
+                </tr>
+                <tr>
+                  <td className="fw-semibold">Critic Score</td>
+                  <td>{p1.rating > 0 ? `${Number(p1.rating).toFixed(1)} / 5.0` : "Unrated"}</td>
+                  <td>{p2.rating > 0 ? `${Number(p2.rating).toFixed(1)} / 5.0` : "Unrated"}</td>
+                </tr>
+                <tr>
+                  <td className="fw-semibold">Operating Hours</td>
+                  <td>{p1.openTime || "07:00 AM"} - {p1.closeTime || "11:00 PM"}</td>
+                  <td>{p2.openTime || "07:00 AM"} - {p2.closeTime || "11:00 PM"}</td>
+                </tr>
+                {commonAmenities.map(function(amenity) {
+                  const hasP1 = (p1.amenities || []).some(function(a) {
+                    const name = typeof a === "object" ? a.name : a;
+                    return name && name.toLowerCase() === amenity.toLowerCase();
+                  });
+                  const hasP2 = (p2.amenities || []).some(function(a) {
+                    const name = typeof a === "object" ? a.name : a;
+                    return name && name.toLowerCase() === amenity.toLowerCase();
+                  });
+                  return (
+                    <tr key={amenity}>
+                      <td className="fw-semibold">{amenity}</td>
+                      <td>{hasP1 ? "Yes" : "No"}</td>
+                      <td>{hasP2 ? "Yes" : "No"}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>
