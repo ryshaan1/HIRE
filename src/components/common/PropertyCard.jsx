@@ -76,9 +76,9 @@ export default function PropertyCard({ property, isCompared, onToggleCompare }) 
                 </>
               )}
             </div>
-            {priceInfo.secondaryPrice && (
+            {priceInfo.secondaryDisplayPrice && (
               <div className="small text-secondary fw-semibold mt-1">
-                ${priceInfo.secondaryPrice} <span className="text-muted fw-normal">({priceInfo.secondaryLabel})</span>
+                {priceInfo.secondaryDisplayPrice} <span className="text-muted fw-normal">({priceInfo.secondaryLabel})</span>
               </div>
             )}
           </div>

@@ -1,20 +1,9 @@
 import { useState } from "react";
+import { getVenueRules } from "../../utils/pricing.js";
 
 export default function VenueRulesEditor({ property, onSaveRules }) {
-  const defaultRules = {
-    paymentMethod: "Cash at Check-in & Credit/Debit Card",
-    advancePercent: 50,
-    acceptedCurrencies: "Local Currency & USD",
-    currencySurcharge: "3.5% foreign currency exchange fee applies",
-    cancellationPolicy: "Cancellations allowed up to 48 hours prior to check-in. Repeated booking and cancellations may trigger account suspension and deposit loss.",
-    customRules: [
-      "Government issued ID required at check-in",
-      "Quiet hours observed from 10:00 PM to 07:00 AM",
-      "Damage to venue property will be billed directly"
-    ]
-  };
-
-  const initial = property.rules || defaultRules;
+  const defaultRules = getVenueRules(property);
+  const initial = (property && property.rules && property.rules.paymentMethod) ? property.rules : defaultRules;
   const [paymentMethod, setPaymentMethod] = useState(initial.paymentMethod || defaultRules.paymentMethod);
   const [advancePercent, setAdvancePercent] = useState(initial.advancePercent || 50);
   const [acceptedCurrencies, setAcceptedCurrencies] = useState(initial.acceptedCurrencies || defaultRules.acceptedCurrencies);
@@ -64,30 +53,27 @@ export default function VenueRulesEditor({ property, onSaveRules }) {
         <div className="row g-3 mb-3">
           <div className="col-12 col-md-6">
             <label className="form-label small text-muted">Accepted Payment Modes</label>
-            <select
-              className="form-select form-select-sm"
+            <input
+              type="text"
+              className="form-control form-control-sm"
               value={paymentMethod}
               onChange={function(e) { setPaymentMethod(e.target.value); }}
-            >
-              <option value="Cash at Check-in & Credit/Debit Card">Cash at Check-in &amp; Credit/Debit Card</option>
-              <option value="Credit / Debit Card Only">Credit / Debit Card Only</option>
-              <option value="Cash Only on Arrival">Cash Only on Arrival</option>
-              <option value="UPI / Online Payment & Cash">UPI / Online Payment &amp; Cash</option>
-            </select>
+              placeholder="e.g. Credit / Debit Card Only or Cash at Check-in"
+            />
           </div>
 
           <div className="col-12 col-md-6">
-            <label className="form-label small text-muted">Advance Deposit Requirement</label>
-            <select
-              className="form-select form-select-sm"
+            <label className="form-label small text-muted">Advance Deposit Requirement (%)</label>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              step="5"
+              className="form-control form-control-sm"
               value={advancePercent}
               onChange={function(e) { setAdvancePercent(e.target.value); }}
-            >
-              <option value="50">50% in advance (Balance at check-in)</option>
-              <option value="40">40% in advance (Balance at check-in)</option>
-              <option value="100">100% full advance payment</option>
-              <option value="0">0% in advance (Pay 100% on check-in)</option>
-            </select>
+              placeholder="e.g. 50"
+            />
           </div>
 
           <div className="col-12 col-md-6">

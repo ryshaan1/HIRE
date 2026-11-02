@@ -20,7 +20,6 @@ export default function CriticDashboard() {
   const [licenceMsg, setLicenceMsg] = useState("");
   const [activeProperty, setActiveProperty] = useState(null);
 
-  // Real-time synchronization across localhost tabs
   useEffect(function() {
     const unsubscribe = subscribeToSync(function() {
       const allProps = getShared("hire_properties", initialProperties);
@@ -190,7 +189,7 @@ export default function CriticDashboard() {
                           </div>
                         </td>
                         <td className="small text-navy fw-semibold">
-                          ${priceInfo.price} <span className="text-muted fw-normal" style={{ fontSize: "0.7rem" }}>{priceInfo.unitDisplay}</span>
+                          {priceInfo.displayPrice} <span className="text-muted fw-normal" style={{ fontSize: "0.7rem" }}>{priceInfo.unitDisplay}</span>
                         </td>
                         <td>
                           <span className={`badge ${

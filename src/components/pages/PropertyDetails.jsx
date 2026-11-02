@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link, useLocation } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext.jsx";
 import { getShared, getSession, setSession, subscribeToSync, broadcastAction } from "../../utils/storage.js";
 import { initialProperties } from "../../data/properties.js";
-import { formatPriceInfo } from "../../utils/pricing.js";
+import { formatPriceInfo, getVenueRules } from "../../utils/pricing.js";
 import ImagePlaceholder from "../common/ImagePlaceholder.jsx";
 import StarRating from "../common/StarRating.jsx";
 import FaqAccordion from "../common/FaqAccordion.jsx";
@@ -66,14 +66,9 @@ export default function PropertyDetails() {
     ? property.images
     : (Array.isArray(property.images) && property.images.length > 0 ? property.images[0] : property.image || null);
 
-  const rules = property.rules || {
-    paymentMethod: "Cash at Check-in & Credit/Debit Card",
-    advancePercent: 50,
-    acceptedCurrencies: `${priceInfo.currency.code}, USD`,
-    currencySurcharge: "3.5% foreign currency exchange fee applies",
-    cancellationPolicy: "Cancellations allowed up to 48 hours prior to check-in. Repeated booking and cancellations may trigger account restriction.",
-    customRules: ["Valid government ID required at check-in", "Quiet hours observed from 10:00 PM to 07:00 AM", "No unauthorized commercial shooting"]
-  };
+  const rules = (property.rules && property.rules.paymentMethod)
+    ? property.rules
+    : getVenueRules(property);
 
   return (
     <div className="hire-details py-3">

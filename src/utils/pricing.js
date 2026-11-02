@@ -67,7 +67,7 @@ export function formatPriceDisplay(amountUSD, country) {
   if (curr.code === "USD") {
     return `$${numUSD.toLocaleString()} USD`;
   }
-  return `${curr.symbol} ${localVal.toLocaleString()} (~$${numUSD.toLocaleString()} USD)`;
+  return `${curr.symbol} ${localVal.toLocaleString()} ($${numUSD.toLocaleString()} USD)`;
 }
 
 export function getPropertyPriceUnit(property) {
@@ -122,6 +122,187 @@ export function formatPriceInfo(property) {
     displayPrice,
     originalDisplayPrice,
     secondaryPrice: property.secondaryPrice ? Number(property.secondaryPrice) : null,
+    secondaryDisplayPrice: property.secondaryPrice ? formatPriceDisplay(property.secondaryPrice, property.country) : null,
     secondaryLabel: property.secondaryPriceLabel || (property.secondaryPrice ? "Package" : null)
+  };
+}
+
+export function getVenueRules(property) {
+  if (!property) {
+    return {
+      paymentMethod: "Cash at Check-in & Credit/Debit Card",
+      advancePercent: 50,
+      acceptedCurrencies: "USD",
+      currencySurcharge: "3.5% foreign currency exchange fee applies",
+      cancellationPolicy: "Cancellations allowed up to 48 hours prior to check-in.",
+      customRules: ["Valid government ID required at check-in"]
+    };
+  }
+
+  if (property.rules && property.rules.paymentMethod) {
+    return property.rules;
+  }
+
+  const idNum = Number(property.id) || 1;
+  const pType = String(property.type || "Hotel").toLowerCase();
+  const curr = getCurrencyForCountry(property.country);
+  const currsList = curr.code === "USD" ? "USD, EUR" : `${curr.code}, USD, EUR`;
+
+  if (pType.includes("restaurant")) {
+    const paymentOptions = [
+      "Table Deposit via Credit Card & Cash/Card for Meal Settlement",
+      "Major Credit/Debit Cards & Contactless Mobile NFC (Cashless Dining)",
+      "Cash Settlement & All Major International Cards (Visa/Mastercard/Amex)",
+      "Split Bill Accepted (Up to 4 Cards per Party) & Local UPI/Cash"
+    ];
+    const advanceOptions = [20, 25, 30, 0];
+    const cancelOptions = [
+      "Dinner table reservation held for 20 minutes past booking time. Cancellation permitted up to 4 hours in advance with full table deposit refund. Repeated no-shows blocked from future bookings.",
+      "Tasting menu seatings require 6 hours cancellation notice. Late cancellations incur a deposit retention fee to cover fresh ingredient preparations.",
+      "Complimentary cancellation up to 2 hours before dining time. No-shows without notification will forfeit reservation priority on the platform."
+    ];
+    const houseRulesOptions = [
+      [
+        "Smart casual dress code observed; athletic wear and beach flip-flops discouraged",
+        "Please notify service team in advance regarding severe nut, seafood, or gluten allergies",
+        "Private vintage wine corkage fee of $30 applies per 750ml bottle",
+        "Children welcome; high chairs and customized kids menus available upon request"
+      ],
+      [
+        "Seating allocated for 1 hour 45 minutes for optimal dining service pacing",
+        "Chef's tasting menu requires full table participation for synchronized service",
+        "Celebration cakes brought from outside subject to $15 service plating fee",
+        "Valet parking validation provided at the host stand upon departure"
+      ]
+    ];
+    const surcharges = ["2.5% foreign currency settlement fee", "3.0% international card surcharge", "Zero surcharge on local card payments", "3.5% multi-currency processing tax"];
+
+    return {
+      paymentMethod: paymentOptions[idNum % paymentOptions.length],
+      advancePercent: advanceOptions[idNum % advanceOptions.length],
+      acceptedCurrencies: currsList,
+      currencySurcharge: surcharges[idNum % surcharges.length],
+      cancellationPolicy: cancelOptions[idNum % cancelOptions.length],
+      customRules: houseRulesOptions[idNum % houseRulesOptions.length]
+    };
+  }
+
+  if (pType.includes("inn")) {
+    const paymentOptions = [
+      "Cash on Arrival & Direct Bank Debit / UPI",
+      "Cash at Check-in & Credit Card Pre-Authorization",
+      "Major Credit/Debit Cards, Cash, & Digital Wallets",
+      "Full Online Prepayment or Cash upon Key Handover"
+    ];
+    const advanceOptions = [25, 30, 35, 40];
+    const cancelOptions = [
+      "Small boutique inn policy: 7 days written notice required for 100% refund. Under 7 days, 35% re-booking fee applies. Repeated frivolous cancellations are penalized.",
+      "Free cancellation up to 48 hours before check-in. In case of same-day cancellation, deposit is converted into a 1-year stay voucher.",
+      "Flexible inn policy: Cancel up to 24 hours prior without fee. Early departures are billed for 50% of the remaining reserved nights."
+    ];
+    const houseRulesOptions = [
+      [
+        "Complimentary homemade artisanal breakfast served in the hearth room from 07:30 AM to 09:30 AM",
+        "Late check-in past 08:30 PM requires prior coordination for keypad access codes",
+        "Historic timber premises: strictly no smoking, vaping, or open candle flames inside",
+        "Secure bicycle and outdoor hiking gear storage available in the private courtyard"
+      ],
+      [
+        "Quiet residential hours observed from 09:30 PM to 07:00 AM for neighborhood tranquility",
+        "Locally roasted coffee, herbal teas, and fresh fruit available 24/7 in the guest lounge",
+        "Shoes-off policy inside upstairs guest suites; warm artisanal slippers provided at entrance",
+        "Well-behaved companion pets permitted in ground floor garden terrace suites with prior registration"
+      ]
+    ];
+    const surcharges = ["3.0% foreign currency fee", "2.8% international conversion tax", "3.5% foreign currency exchange fee", "Zero exchange surcharge on cash settlement"];
+
+    return {
+      paymentMethod: paymentOptions[idNum % paymentOptions.length],
+      advancePercent: advanceOptions[idNum % advanceOptions.length],
+      acceptedCurrencies: currsList,
+      currencySurcharge: surcharges[idNum % surcharges.length],
+      cancellationPolicy: cancelOptions[idNum % cancelOptions.length],
+      customRules: houseRulesOptions[idNum % houseRulesOptions.length]
+    };
+  }
+
+  if (pType.includes("banquet")) {
+    const paymentOptions = [
+      "Bank Wire Transfer, Corporate Cheque & 50% Advance Card/Cash",
+      "Major Credit Cards & Certified Bank Escrow Transfer",
+      "50% Cash/Card Booking Advance & Remaining 50% Post-Event Settlement"
+    ];
+    const advanceOptions = [50, 60, 40];
+    const cancelOptions = [
+      "Event hall booking requires 14 days cancellation notice for 80% refund. Cancellations within 14 days forfeit deposit due to exclusive date booking reservations.",
+      "Banquet reservation cancellation permitted up to 30 days prior for full refund less 10% administrative processing fee.",
+      "Date rescheduling allowed once free of charge if requested at least 10 days prior to event date."
+    ];
+    const houseRulesOptions = [
+      [
+        "External vendor, catering, and floral setup access granted from 09:00 AM on event day",
+        "Sound decibel restrictions strictly enforced after 11:00 PM in accordance with municipal ordinances",
+        "Refundable security damage deposit of $250 inspected and returned within 48 hours post event",
+        "Pyrotechnics, fire hazards, and confetti cannons strictly prohibited on ballroom floor"
+      ]
+    ];
+    return {
+      paymentMethod: paymentOptions[idNum % paymentOptions.length],
+      advancePercent: advanceOptions[idNum % advanceOptions.length],
+      acceptedCurrencies: currsList,
+      currencySurcharge: "3.5% international wire processing fee",
+      cancellationPolicy: cancelOptions[idNum % cancelOptions.length],
+      customRules: houseRulesOptions[idNum % houseRulesOptions.length]
+    };
+  }
+
+  const paymentOptions = [
+    "Cash at Check-in & Major Credit/Debit Cards (Visa/Mastercard/Amex)",
+    "Credit / Debit Card Only (Cashless Front Desk for Guest Security)",
+    "Major Cards, Digital Escrow, & Contactless Apple/Google Pay",
+    "Cash on Arrival & International Credit Cards (Pre-authorization Required)",
+    "All Major Credit Cards, Bank Wire, & Cash at Concierge"
+  ];
+  const advanceOptions = [30, 40, 50, 60];
+  const cancelOptions = [
+    "Complimentary cancellation up to 48 hours prior to check-in. Late cancellation incurs 1-night room fee. Repeated booking and cancellations across venues trigger immediate account lock.",
+    "Free cancellation until 72 hours before arrival date. Within 72 hours, 50% advance deposit is non-refundable. Platform monitors frequent cancel abuse.",
+    "Flexible stay policy: 100% refund if cancelled 24 hours prior. Unnotified no-shows result in full booking forfeiture and user trust rating deduction.",
+    "Non-refundable promotional rate. Date modifications permitted up to 72 hours in advance subject to room category availability."
+  ];
+  const houseRulesOptions = [
+    [
+      "Valid passport or national government photo ID required for all staying guests upon check-in",
+      "Quiet hours observed strictly from 10:00 PM to 07:00 AM in guest corridors and suites",
+      "Rooftop infinity pool and wellness spa accessible daily from 06:00 AM to 10:30 PM",
+      "Smart casual dress code maintained in evening dining salons and executive club lounge"
+    ],
+    [
+      "Government photo ID and credit card pre-authorization required upon front desk registration",
+      "Standard check-in begins at 2:00 PM; check-out strictly by 11:30 AM to allow sanitization",
+      "Valet parking complimentary for registered hotel guests with vehicle registration plate",
+      "Strict non-smoking policy enforced across all interior rooms and balcony suites ($150 sanitization fee)"
+    ],
+    [
+      "All guests must present matching ID with booking reservation reference voucher",
+      "Executive lounge access reserved exclusively for club floor, junior suite, and presidential suite reservations",
+      "Pet friendly in designated ground-level garden terrace rooms with prior concierge registration",
+      "Commercial photography or filming requires prior written authorization from general management"
+    ]
+  ];
+  const surcharges = [
+    "3.5% foreign currency exchange fee applies",
+    "2.5% cross-border multi-currency processing tax",
+    "3.8% international conversion fee on non-local billing",
+    "Zero exchange surcharge on major international card settlements"
+  ];
+
+  return {
+    paymentMethod: paymentOptions[idNum % paymentOptions.length],
+    advancePercent: advanceOptions[idNum % advanceOptions.length],
+    acceptedCurrencies: currsList,
+    currencySurcharge: surcharges[idNum % surcharges.length],
+    cancellationPolicy: cancelOptions[idNum % cancelOptions.length],
+    customRules: houseRulesOptions[idNum % houseRulesOptions.length]
   };
 }

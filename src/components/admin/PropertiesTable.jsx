@@ -71,7 +71,7 @@ export default function PropertiesTable({ properties = [], onOpenModal, onQuickS
                 <td className="small">{p.city}, {p.country}</td>
                 <td className="small">
                   <div className="fw-bold text-navy">
-                    ${priceInfo.price} <span className="text-muted fw-normal small">{priceInfo.unitDisplay}</span>
+                    {priceInfo.displayPrice} <span className="text-muted fw-normal small">{priceInfo.unitDisplay}</span>
                   </div>
                   {priceInfo.secondaryPrice && (
                     <div className="text-teal" style={{ fontSize: "0.72rem" }}>

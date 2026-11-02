@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext.jsx";
 import { getShared, setShared, subscribeToSync, broadcastAction } from "../../utils/storage.js";
 import { initialProperties } from "../../data/properties.js";
-import { formatPriceInfo, getCurrencyForCountry } from "../../utils/pricing.js";
+import { formatPriceInfo, getCurrencyForCountry, getVenueRules } from "../../utils/pricing.js";
 import ImagePlaceholder from "../common/ImagePlaceholder.jsx";
 import { createBooking } from "../../services/api.js";
 
@@ -77,14 +77,9 @@ export default function Booking() {
   const localBaseTotal = Math.round(baseTotalUSD * curr.rate);
   const localTaxes = Math.round(taxesUSD * curr.rate);
 
-  const rules = property.rules || {
-    paymentMethod: "Cash at Check-in & Credit/Debit Card",
-    advancePercent: 50,
-    acceptedCurrencies: `${curr.code}, USD`,
-    currencySurcharge: "3.5% foreign currency exchange fee applies",
-    cancellationPolicy: "Cancellations allowed up to 48 hours prior to check-in. Repeated booking and cancellations will trigger account suspension.",
-    customRules: ["Government issued ID required at check-in", "Quiet hours observed from 10:00 PM to 07:00 AM", "Damage to venue property will be billed directly"]
-  };
+  const rules = (property.rules && property.rules.paymentMethod)
+    ? property.rules
+    : getVenueRules(property);
 
   const advancePercent = Number(rules.advancePercent) || 50;
   const advancePayableLocal = Math.round(localGrandTotal * (advancePercent / 100));
