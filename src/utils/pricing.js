@@ -46,6 +46,41 @@ export const COUNTRY_CURRENCY_MAP = {
   "USA": { code: "USD", symbol: "$", rate: 1.0 }
 };
 
+export const SUPPORTED_CONVERTER_CURRENCIES = [
+  { code: "INR", symbol: "₹", name: "Indian Rupee (INR)", rate: 83.5 },
+  { code: "EUR", symbol: "€", name: "Euro (EUR)", rate: 0.92 },
+  { code: "GBP", symbol: "£", name: "British Pound (GBP)", rate: 0.78 },
+  { code: "USD", symbol: "$", name: "US Dollar (USD)", rate: 1.0 },
+  { code: "AED", symbol: "AED", name: "UAE Dirham (AED)", rate: 3.67 },
+  { code: "JPY", symbol: "¥", name: "Japanese Yen (JPY)", rate: 153.0 },
+  { code: "CAD", symbol: "C$", name: "Canadian Dollar (CAD)", rate: 1.38 },
+  { code: "AUD", symbol: "A$", name: "Australian Dollar (AUD)", rate: 1.52 },
+  { code: "CHF", symbol: "CHF", name: "Swiss Franc (CHF)", rate: 0.88 },
+  { code: "CNY", symbol: "¥", name: "Chinese Yuan (CNY)", rate: 7.23 },
+  { code: "SGD", symbol: "S$", name: "Singapore Dollar (SGD)", rate: 1.32 },
+  { code: "RUB", symbol: "₽", name: "Russian Ruble (RUB)", rate: 96.5 }
+];
+
+export function getSelectedCurrency() {
+  if (typeof window === "undefined") return { code: "INR", symbol: "₹", rate: 83.5 };
+  try {
+    const saved = localStorage.getItem("hire_selected_currency");
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed && parsed.code) return parsed;
+    }
+  } catch (e) {}
+  return { code: "INR", symbol: "₹", rate: 83.5 };
+}
+
+export function setSelectedCurrency(currencyObj) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem("hire_selected_currency", JSON.stringify(currencyObj));
+    window.dispatchEvent(new Event("hire_currency_changed"));
+  } catch (e) {}
+}
+
 export function getCurrencyForCountry(country) {
   if (!country) return { code: "USD", symbol: "$", rate: 1.0 };
   const trimmed = String(country).trim();
@@ -60,14 +95,26 @@ export function getCurrencyForCountry(country) {
   return { code: "USD", symbol: "$", rate: 1.0 };
 }
 
-export function formatPriceDisplay(amountUSD, country) {
+export function formatPriceDisplay(amountUSD, country, customCurrency = null) {
   const numUSD = Number(amountUSD) || 0;
-  const curr = getCurrencyForCountry(country);
-  const localVal = Math.round(numUSD * curr.rate);
-  if (curr.code === "USD") {
-    return `$${numUSD.toLocaleString()} USD`;
+  const localCurr = getCurrencyForCountry(country);
+  const localVal = Math.round(numUSD * localCurr.rate);
+  const target = customCurrency || getSelectedCurrency();
+
+  let targetCurr = target;
+  if (targetCurr.code === localCurr.code) {
+    targetCurr = targetCurr.code === "INR"
+      ? { code: "EUR", symbol: "€", rate: 0.92 }
+      : { code: "INR", symbol: "₹", rate: 83.5 };
   }
-  return `${curr.symbol} ${localVal.toLocaleString()} ($${numUSD.toLocaleString()} USD)`;
+
+  const targetVal = Math.round(numUSD * targetCurr.rate);
+
+  if (localCurr.code === "USD") {
+    return `$${numUSD.toLocaleString()} USD [${targetCurr.symbol} ${targetVal.toLocaleString()} ${targetCurr.code}]`;
+  }
+
+  return `${localCurr.symbol} ${localVal.toLocaleString()} ($${numUSD.toLocaleString()} USD) [${targetCurr.symbol} ${targetVal.toLocaleString()} ${targetCurr.code}]`;
 }
 
 export function getPropertyPriceUnit(property) {
@@ -84,7 +131,7 @@ export function getPropertyPriceUnit(property) {
   return "/ night";
 }
 
-export function formatPriceInfo(property) {
+export function formatPriceInfo(property, customCurrency = null) {
   if (!property) {
     return {
       price: 0,
@@ -109,8 +156,8 @@ export function formatPriceInfo(property) {
   const unit = getPropertyPriceUnit(property);
   const unitDisplay = unit.startsWith("/") ? unit : ` ${unit}`;
   const currency = getCurrencyForCountry(property.country);
-  const displayPrice = formatPriceDisplay(discountedPrice, property.country);
-  const originalDisplayPrice = formatPriceDisplay(basePrice, property.country);
+  const displayPrice = formatPriceDisplay(discountedPrice, property.country, customCurrency);
+  const originalDisplayPrice = formatPriceDisplay(basePrice, property.country, customCurrency);
 
   return {
     price: basePrice,
@@ -122,7 +169,7 @@ export function formatPriceInfo(property) {
     displayPrice,
     originalDisplayPrice,
     secondaryPrice: property.secondaryPrice ? Number(property.secondaryPrice) : null,
-    secondaryDisplayPrice: property.secondaryPrice ? formatPriceDisplay(property.secondaryPrice, property.country) : null,
+    secondaryDisplayPrice: property.secondaryPrice ? formatPriceDisplay(property.secondaryPrice, property.country, customCurrency) : null,
     secondaryLabel: property.secondaryPriceLabel || (property.secondaryPrice ? "Package" : null)
   };
 }

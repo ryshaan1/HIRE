@@ -3,6 +3,7 @@ import { getShared, getSession, setSession, subscribeToSync } from "../../utils/
 import { initialProperties } from "../../data/properties.js";
 import FilterBar from "../common/FilterBar.jsx";
 import PropertyCard from "../common/PropertyCard.jsx";
+import CurrencySelector from "../common/CurrencySelector.jsx";
 
 export default function Search() {
   const [properties, setProperties] = useState(function() {
@@ -80,9 +81,12 @@ export default function Search() {
 
   return (
     <div className="hire-search py-3">
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <h4 className="fw-bold text-navy mb-0">Find a place to stay or eat</h4>
-        <span className="text-muted small">{filtered.length} properties found</span>
+      <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <div>
+          <h4 className="fw-bold text-navy mb-0">Find a place to stay or eat</h4>
+          <span className="text-muted small">{filtered.length} properties found</span>
+        </div>
+        <CurrencySelector />
       </div>
 
       <FilterBar

@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link, useLocation } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext.jsx";
 import { getShared, getSession, setSession, subscribeToSync, broadcastAction } from "../../utils/storage.js";
 import { initialProperties } from "../../data/properties.js";
-import { formatPriceInfo, getVenueRules } from "../../utils/pricing.js";
+import { formatPriceInfo, getVenueRules, getSelectedCurrency } from "../../utils/pricing.js";
 import { getVenueCulture } from "../../utils/culture.js";
 import ImagePlaceholder from "../common/ImagePlaceholder.jsx";
 import StarRating from "../common/StarRating.jsx";
@@ -25,6 +25,19 @@ export default function PropertyDetails() {
   });
   const [compareMsg, setCompareMsg] = useState("");
   const [showReportModal, setShowReportModal] = useState(false);
+  const [selectedCurrency, setSelectedCurrency] = useState(function() {
+    return getSelectedCurrency();
+  });
+
+  useEffect(function() {
+    function handleCurr() {
+      setSelectedCurrency(getSelectedCurrency());
+    }
+    window.addEventListener("hire_currency_changed", handleCurr);
+    return function() {
+      window.removeEventListener("hire_currency_changed", handleCurr);
+    };
+  }, []);
 
   useEffect(function() {
     const unsubscribe = subscribeToSync(function() {
@@ -42,7 +55,7 @@ export default function PropertyDetails() {
   const isFlagged = property.status === "flagged";
   const isBanned = property.status === "banned";
   const isCompared = compareList.some(function(c) { return c.id === property.id; });
-  const priceInfo = formatPriceInfo(property);
+  const priceInfo = formatPriceInfo(property, selectedCurrency);
 
   function handleToggleCompare() {
     let updated;

@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext.jsx";
 import { getShared, setShared, subscribeToSync, broadcastAction } from "../../utils/storage.js";
 import { initialProperties } from "../../data/properties.js";
-import { formatPriceInfo, getCurrencyForCountry, getVenueRules } from "../../utils/pricing.js";
+import { formatPriceInfo, getCurrencyForCountry, getVenueRules, getSelectedCurrency } from "../../utils/pricing.js";
 import { getVenueCulture } from "../../utils/culture.js";
 import ImagePlaceholder from "../common/ImagePlaceholder.jsx";
 import { createBooking } from "../../services/api.js";
@@ -90,7 +90,7 @@ export default function Booking() {
     );
   }
 
-  const priceInfo = formatPriceInfo(property);
+  const priceInfo = formatPriceInfo(property, getSelectedCurrency());
   const effPriceUSD = priceInfo.hasDiscount ? priceInfo.discountedPrice : priceInfo.price;
   const isRestaurant = property.type && property.type.includes("Restaurant");
   const isInn = property.type && property.type.includes("Inn");

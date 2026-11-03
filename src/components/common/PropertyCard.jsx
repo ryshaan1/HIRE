@@ -1,15 +1,30 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import ImagePlaceholder from "./ImagePlaceholder.jsx";
 import StarRating from "./StarRating.jsx";
-import { formatPriceInfo } from "../../utils/pricing.js";
+import { formatPriceInfo, getSelectedCurrency } from "../../utils/pricing.js";
 
 export default function PropertyCard({ property, isCompared, onToggleCompare }) {
+  const [currency, setCurrency] = useState(function() {
+    return getSelectedCurrency();
+  });
+
+  useEffect(function() {
+    function handleCurrencyChange() {
+      setCurrency(getSelectedCurrency());
+    }
+    window.addEventListener("hire_currency_changed", handleCurrencyChange);
+    return function() {
+      window.removeEventListener("hire_currency_changed", handleCurrencyChange);
+    };
+  }, []);
+
   const photo = typeof property.images === "string" && property.images.length > 5 
     ? property.images 
     : (Array.isArray(property.images) && property.images.length > 0 
       ? property.images[0] 
       : (property.image || null));
-  const priceInfo = formatPriceInfo(property);
+  const priceInfo = formatPriceInfo(property, currency);
   const isFlagged = property.status === "flagged";
   const isBanned = property.status === "banned";
 

@@ -2,6 +2,7 @@ import { useContext, useState, useEffect } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext.jsx";
 import { getSession } from "../../utils/storage.js";
+import CurrencySelector from "../common/CurrencySelector.jsx";
 
 export default function Navbar() {
   const { currentUser, logout } = useContext(AuthContext);
@@ -95,7 +96,8 @@ export default function Navbar() {
             )}
           </ul>
 
-          <div className="d-flex align-items-center gap-2">
+          <div className="d-flex align-items-center gap-3">
+            <CurrencySelector compact={true} />
             {currentUser ? (
               <div className="d-flex align-items-center gap-3">
                 <span className="small text-muted">

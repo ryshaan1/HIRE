@@ -4,6 +4,7 @@ import { AuthContext } from "../../context/AuthContext.jsx";
 import { getShared, getSession, setSession, subscribeToSync } from "../../utils/storage.js";
 import { initialProperties } from "../../data/properties.js";
 import PropertyCard from "../common/PropertyCard.jsx";
+import CurrencySelector from "../common/CurrencySelector.jsx";
 import heroImg from "../../assets/hero.png";
 import featureFindImg from "../../assets/feature_find.jpg";
 import featureCompareImg from "../../assets/feature_compare.jpg";
@@ -13,7 +14,6 @@ export default function Home() {
   const { currentUser } = useContext(AuthContext);
   const [properties, setProperties] = useState(function() {
     const list = getShared("hire_properties", initialProperties);
-    // Customers can see active, flagged, and banned properties; only pending admission is unlisted
     return list.filter(function(p) { return p.status !== "pending_admission"; });
   });
   const [compareList, setCompareList] = useState(function() {
@@ -154,9 +154,15 @@ export default function Home() {
       </section>
 
       <section className="mb-5">
-        <div className="d-flex justify-content-between align-items-center mb-3">
-          <h4 className="text-navy fw-bold mb-0">Featured properties</h4>
-          <Link to="/search" className="text-teal small text-decoration-none fw-semibold">Browse all &rarr;</Link>
+        <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+          <div>
+            <h4 className="text-navy fw-bold mb-0">Featured properties</h4>
+            <span className="small text-muted">Showing local price, USD equivalent, and selected converted currency</span>
+          </div>
+          <div className="d-flex align-items-center gap-3">
+            <CurrencySelector />
+            <Link to="/search" className="text-teal small text-decoration-none fw-semibold">Browse all &rarr;</Link>
+          </div>
         </div>
         <div className="row g-3">
           {featured.map(function(item) {
