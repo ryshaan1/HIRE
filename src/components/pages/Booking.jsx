@@ -4,8 +4,38 @@ import { AuthContext } from "../../context/AuthContext.jsx";
 import { getShared, setShared, subscribeToSync, broadcastAction } from "../../utils/storage.js";
 import { initialProperties } from "../../data/properties.js";
 import { formatPriceInfo, getCurrencyForCountry, getVenueRules } from "../../utils/pricing.js";
+import { getVenueCulture } from "../../utils/culture.js";
 import ImagePlaceholder from "../common/ImagePlaceholder.jsx";
 import { createBooking } from "../../services/api.js";
+
+function detectCardBrand(number) {
+  const cleaned = String(number || "").replace(/[\s-]/g, "");
+  if (!cleaned) return "Card";
+  if (/^4/.test(cleaned)) return "Visa";
+  if (/^(5[1-5]|2[2-7])/.test(cleaned)) return "Mastercard";
+  if (/^3[47]/.test(cleaned)) return "American Express";
+  if (/^(6011|65)/.test(cleaned)) return "Discover";
+  if (/^(60|65|81|82)/.test(cleaned)) return "RuPay";
+  if (/^35/.test(cleaned)) return "JCB";
+  return "Credit/Debit Card";
+}
+
+function formatCardNumber(value) {
+  const v = String(value || "").replace(/\D/g, "").slice(0, 16);
+  const parts = [];
+  for (let i = 0; i < v.length; i += 4) {
+    parts.push(v.slice(i, i + 4));
+  }
+  return parts.join(" ");
+}
+
+function formatExpiryDate(value) {
+  const v = String(value || "").replace(/\D/g, "").slice(0, 4);
+  if (v.length >= 3) {
+    return `${v.slice(0, 2)}/${v.slice(2, 4)}`;
+  }
+  return v;
+}
 
 export default function Booking() {
   const { id } = useParams();
@@ -22,10 +52,18 @@ export default function Booking() {
   const [checkIn, setCheckIn] = useState(todayStr);
   const [checkOut, setCheckOut] = useState(tomorrow);
   const [guests, setGuests] = useState(2);
+  const [roomType, setRoomType] = useState("Deluxe Suite");
+  const [foodPreorder, setFoodPreorder] = useState("Order à la carte at venue as per mood");
   const [step, setStep] = useState(1);
   const [rulesAgreed, setRulesAgreed] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [confirmedBooking, setConfirmedBooking] = useState(null);
+
+  const [cardNumber, setCardNumber] = useState("");
+  const [cardHolder, setCardHolder] = useState(currentUser ? currentUser.name || "" : "");
+  const [cardExpiry, setCardExpiry] = useState("");
+  const [cardCvv, setCardCvv] = useState("");
 
   useEffect(function() {
     const unsubscribe = subscribeToSync(function() {
@@ -55,6 +93,7 @@ export default function Booking() {
   const priceInfo = formatPriceInfo(property);
   const effPriceUSD = priceInfo.hasDiscount ? priceInfo.discountedPrice : priceInfo.price;
   const isRestaurant = property.type && property.type.includes("Restaurant");
+  const isInn = property.type && property.type.includes("Inn");
 
   const d1 = new Date(checkIn);
   const d2 = new Date(checkOut);
@@ -81,20 +120,32 @@ export default function Booking() {
     ? property.rules
     : getVenueRules(property);
 
-  const advancePercent = Number(rules.advancePercent) || 50;
-  const advancePayableLocal = Math.round(localGrandTotal * (advancePercent / 100));
-  const advancePayableUSD = Math.round(grandTotalUSD * (advancePercent / 100));
-  const balanceDueLocal = localGrandTotal - advancePayableLocal;
-  const balanceDueUSD = grandTotalUSD - advancePayableUSD;
+  const culture = getVenueCulture(property);
+
+  const rawAdvancePercent = Number(rules.advancePercent);
+  const effectiveAdvancePercent = isNaN(rawAdvancePercent) ? 50 : rawAdvancePercent;
+
+  let advancePayableUSD = 0;
+  let isStartingFee = false;
+  if (effectiveAdvancePercent > 0) {
+    advancePayableUSD = Math.max(15, Math.round(grandTotalUSD * (effectiveAdvancePercent / 100)));
+  } else {
+    advancePayableUSD = Math.min(25, grandTotalUSD);
+    isStartingFee = true;
+  }
+  const advancePayableLocal = Math.round(advancePayableUSD * curr.rate);
+  const balanceDueUSD = Math.max(0, grandTotalUSD - advancePayableUSD);
+  const balanceDueLocal = Math.round(balanceDueUSD * curr.rate);
 
   const isCriticUser = currentUser && currentUser.role === "critic";
+  const detectedBrand = detectCardBrand(cardNumber);
 
   function checkOverlapConflict(newStart, newEnd) {
     if (!currentUser) return null;
     const allBookings = getShared("hire_bookings", []);
     const userActiveBookings = allBookings.filter(function(b) {
       if (b.userEmail !== currentUser.email) return false;
-      if (b.status === "Cancelled" || b.status === "Rejected" || b.status === "Cancelled by Manager") return false;
+      if (b.status === "Cancelled" || b.status === "Rejected" || b.status === "Cancelled by Manager" || b.status === "Refunded") return false;
       return String(b.propertyId) !== String(property.id);
     });
 
@@ -125,34 +176,74 @@ export default function Booking() {
     }
 
     setErrorMsg("");
-
     if (isCriticUser) {
-      submitBookingRequest();
+      finalizeBooking({ brand: "Critic Escrow Voucher", last4: "8888" });
     } else {
       setStep(2);
     }
   }
 
-  function submitBookingRequest() {
-    const conflict = checkOverlapConflict(checkIn, checkOut);
-    if (conflict) {
-      setErrorMsg(`Booking Conflict: You already have an active reservation at "${conflict.propertyName}" from ${conflict.checkIn} to ${conflict.checkOut}.`);
+  function handleRulesConfirm(e) {
+    e.preventDefault();
+    if (!rulesAgreed) {
+      setErrorMsg("You must read and agree to all venue rules, advance deposit policies, and anti-abuse terms.");
+      return;
+    }
+    setErrorMsg("");
+    setStep(3);
+  }
+
+  function handleProcessPayment(e) {
+    e.preventDefault();
+    const cleanCard = cardNumber.replace(/\D/g, "");
+    if (cleanCard.length < 13 || cleanCard.length > 19) {
+      setErrorMsg("Please enter a valid card number (13 to 19 digits).");
+      return;
+    }
+    if (!cardHolder.trim()) {
+      setErrorMsg("Please enter the name on the card.");
+      return;
+    }
+    if (!cardExpiry || cardExpiry.length < 5) {
+      setErrorMsg("Please enter a valid expiry date (MM/YY).");
+      return;
+    }
+    if (!cardCvv || cardCvv.length < 3) {
+      setErrorMsg("Please enter a valid 3 or 4 digit CVV security code.");
       return;
     }
 
+    setErrorMsg("");
+    setIsProcessingPayment(true);
+
+    setTimeout(function() {
+      setIsProcessingPayment(false);
+      finalizeBooking({
+        brand: detectedBrand,
+        last4: cleanCard.slice(-4)
+      });
+    }, 1200);
+  }
+
+  function finalizeBooking(paymentCardInfo) {
     const bookingId = Date.now();
+    const cleanCardLast4 = paymentCardInfo.last4 || "4242";
+    const brandName = paymentCardInfo.brand || "Credit Card";
+
     const newBooking = {
       id: bookingId,
       propertyId: property.id,
       propertyName: property.name,
       propertyCity: property.city,
       propertyCountry: property.country,
-      userEmail: currentUser.email,
-      userName: isCriticUser ? (currentUser.name || "Verified Guest") : (currentUser.name || currentUser.email),
+      userEmail: currentUser ? currentUser.email : "guest@hire.com",
+      userName: isCriticUser ? (currentUser.name || "Verified Critic") : (currentUser ? currentUser.name : cardHolder || "Guest"),
       isCritic: Boolean(isCriticUser),
       checkIn: checkIn,
       checkOut: checkOut,
       guests: guests,
+      roomType: roomType,
+      foodPreorder: foodPreorder,
       unitCount: multiplier,
       rateUnit: priceInfo.unit,
       currencyCode: curr.code,
@@ -163,12 +254,15 @@ export default function Booking() {
       advancePaidUSD: advancePayableUSD,
       balanceDue: balanceDueLocal,
       balanceDueUSD: balanceDueUSD,
-      paymentMethod: rules.paymentMethod,
-      advancePercent: advancePercent,
-      status: "Pending Approval",
+      paymentMethod: isCriticUser ? "Critic Official Ledger" : `Card Deposit (${brandName} ••••${cleanCardLast4})`,
+      cardBrand: brandName,
+      cardLast4: cleanCardLast4,
+      advancePercent: effectiveAdvancePercent,
+      isStartingFee: isStartingFee,
+      status: "Payment Received",
       managerDirectives: "",
       rescheduleProposal: null,
-      foodEaten: isRestaurant ? `${guests} Guest Dinner Menu` : "Continental Stay Buffet",
+      foodEaten: foodPreorder,
       createdAt: new Date().toISOString()
     };
 
@@ -180,25 +274,26 @@ export default function Booking() {
     try {
       createBooking({
         customerName: newBooking.userName,
-        customerEmail: currentUser.email,
+        customerEmail: newBooking.userEmail,
         hotelId: String(property.id),
+        hotelName: property.name,
         checkInDate: checkIn,
         checkOutDate: checkOut,
         numberOfGuests: guests,
         totalPrice: localGrandTotal,
-        status: "Pending Approval"
+        currency: curr.code,
+        roomType: roomType,
+        foodPreorder: foodPreorder,
+        advancePaid: advancePayableLocal,
+        advancePaidUSD: advancePayableUSD,
+        balanceDue: balanceDueLocal,
+        balanceDueUSD: balanceDueUSD,
+        cardBrand: brandName,
+        cardLast4: cleanCardLast4,
+        paymentMethod: newBooking.paymentMethod,
+        status: "Payment Received"
       });
     } catch (err) {}
-  }
-
-  function handleRulesConfirm(e) {
-    e.preventDefault();
-    if (!rulesAgreed) {
-      setErrorMsg("You must read and agree to all venue rules, advance payment terms, and anti-abuse policies.");
-      return;
-    }
-    setErrorMsg("");
-    submitBookingRequest();
   }
 
   if (confirmedBooking) {
@@ -207,7 +302,7 @@ export default function Booking() {
         <div className="card shadow border rounded bg-white p-4">
           <div className="text-center mb-4">
             <div className="badge bg-success-subtle text-success fs-6 px-3 py-2 rounded-pill mb-2">
-              Booking Request Submitted to Venue Manager
+              ✓ Pre-booking Advance Payment Received
             </div>
             <h4 className="fw-bold text-navy mb-1">Commercial Reservation Receipt</h4>
             <p className="text-muted small">Reference #{String(confirmedBooking.id).slice(-8)} &bull; {new Date(confirmedBooking.createdAt).toLocaleDateString()}</p>
@@ -219,8 +314,10 @@ export default function Booking() {
               <div className="col-6"><strong>Location:</strong> {confirmedBooking.propertyCity}, {confirmedBooking.propertyCountry}</div>
               <div className="col-6"><strong>Check-In:</strong> {confirmedBooking.checkIn}</div>
               <div className="col-6"><strong>Check-Out:</strong> {confirmedBooking.checkOut}</div>
-              <div className="col-6"><strong>Headcount:</strong> {confirmedBooking.guests} Guests ({confirmedBooking.unitCount} {confirmedBooking.rateUnit})</div>
-              <div className="col-6"><strong>Guest Name:</strong> {confirmedBooking.userName}</div>
+              <div className="col-6"><strong>Selected Room/Table:</strong> {confirmedBooking.roomType}</div>
+              <div className="col-6"><strong>Food Pre-order:</strong> {confirmedBooking.foodPreorder}</div>
+              <div className="col-6"><strong>Headcount:</strong> {confirmedBooking.guests} Guests</div>
+              <div className="col-6"><strong>Payment Instrument:</strong> {confirmedBooking.paymentMethod}</div>
             </div>
           </div>
 
@@ -229,41 +326,38 @@ export default function Booking() {
             <div className="card-body p-3">
               <div className="d-flex justify-content-between small mb-2">
                 <span className="text-secondary">Base Rate ({unitLabel}):</span>
-                <span className="fw-semibold">{curr.symbol} {localBaseTotal.toLocaleString()} (~${baseTotalUSD} USD)</span>
+                <span className="fw-semibold">{curr.symbol} {localBaseTotal.toLocaleString()} (${baseTotalUSD} USD)</span>
               </div>
               <div className="d-flex justify-content-between small mb-2">
-                <span className="text-secondary">Local Tourism & Occupancy Tax (12%):</span>
-                <span className="fw-semibold">{curr.symbol} {localTaxes.toLocaleString()} (~${taxesUSD} USD)</span>
+                <span className="text-secondary">Local Tourism &amp; Occupancy Tax (12%):</span>
+                <span className="fw-semibold">{curr.symbol} {localTaxes.toLocaleString()} (${taxesUSD} USD)</span>
               </div>
               <hr className="my-2" />
               <div className="d-flex justify-content-between mb-2">
                 <span className="fw-bold text-navy">Total Billable Amount:</span>
-                <span className="fw-bold text-teal fs-6">{curr.symbol} {localGrandTotal.toLocaleString()} (~${grandTotalUSD} USD)</span>
+                <span className="fw-bold text-teal fs-6">{curr.symbol} {localGrandTotal.toLocaleString()} (${grandTotalUSD} USD)</span>
               </div>
-              <div className="d-flex justify-content-between small text-muted mb-1">
-                <span>Advance Required ({advancePercent}%):</span>
-                <span>{curr.symbol} {advancePayableLocal.toLocaleString()} (~${advancePayableUSD} USD)</span>
+              <div className="d-flex justify-content-between small text-success mb-1 fw-semibold">
+                <span>Advance Fee Paid Now:</span>
+                <span>{curr.symbol} {advancePayableLocal.toLocaleString()} (${advancePayableUSD} USD)</span>
               </div>
               <div className="d-flex justify-content-between small text-muted">
-                <span>Balance Due at Check-in:</span>
-                <span>{curr.symbol} {balanceDueLocal.toLocaleString()} (~${balanceDueUSD} USD)</span>
+                <span>Remaining Balance Due at Check-in:</span>
+                <span>{curr.symbol} {balanceDueLocal.toLocaleString()} (${balanceDueUSD} USD)</span>
               </div>
             </div>
           </div>
 
           <div className="alert alert-info py-2 px-3 small mb-4">
-            <strong>Current Request Status:</strong> <span className="badge bg-warning text-dark ms-1">Pending Approval</span>
-            <div className="mt-1">
-              Your request has been forwarded directly to the venue manager. The manager can approve, cancel, or propose a reschedule. Track live updates on your dashboard.
-            </div>
+            <strong>Check-in Directives:</strong> Please present valid identification upon arrival. Final payment settlement and any additional dining services will be finalized at the venue desk.
           </div>
 
-          <div className="d-flex gap-2">
-            <Link to="/user-dashboard" className="btn btn-teal flex-grow-1 fw-semibold py-2">
-              View My Bookings & Live Status
+          <div className="d-flex gap-2 justify-content-center">
+            <Link to="/user-dashboard" className="btn btn-teal px-4 fw-semibold">
+              Go to My Bookings Dashboard
             </Link>
-            <Link to="/search" className="btn btn-outline-secondary px-3 py-2">
-              Browse More
+            <Link to="/search" className="btn btn-outline-secondary px-3">
+              Explore More Venues
             </Link>
           </div>
         </div>
@@ -273,28 +367,40 @@ export default function Booking() {
 
   return (
     <div className="hire-booking py-4" style={{ maxWidth: "780px", margin: "0 auto" }}>
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <Link to={`/property/${property.id}`} className="text-muted small text-decoration-none">&larr; Back to venue</Link>
-        <span className="small text-muted">{step === 1 ? "Step 1 of 2: Dates & Headcount" : "Step 2 of 2: Rules & Agreement"}</span>
+      <div className="mb-3">
+        <Link to={`/property/${property.id}`} className="text-muted small text-decoration-none">
+          &larr; Back to venue details
+        </Link>
       </div>
 
-      <div className="card shadow-sm border rounded bg-white p-4">
-        <div className="d-flex align-items-center gap-3 mb-4 border-bottom pb-3">
-          <div style={{ width: "110px", height: "75px" }}>
-            <ImagePlaceholder height="75px" src={Array.isArray(property.images) && property.images.length > 0 ? property.images[0] : property.image} />
-          </div>
+      <div className="card shadow-sm border rounded bg-white p-4 mb-4">
+        <div className="d-flex justify-content-between align-items-center mb-3 border-bottom pb-3">
           <div>
-            <span className="badge bg-teal mb-1">{property.type}</span>
-            <h5 className="fw-bold text-navy mb-0">{property.name}</h5>
-            <span className="text-muted small">{property.city}, {property.country} &bull; {priceInfo.displayPrice} {priceInfo.unitDisplay}</span>
+            <h4 className="fw-bold text-navy mb-0">Book Reservation</h4>
+            <span className="text-muted small">{property.name} &bull; {property.city}, {property.country}</span>
+          </div>
+          <div className="text-end">
+            <span className="fs-5 fw-bold text-teal">{priceInfo.displayPrice}</span>
+            <span className="small text-muted">{priceInfo.unitDisplay}</span>
+          </div>
+        </div>
+
+        <div className="d-flex p-1 bg-light rounded mb-4 gap-1 text-center small">
+          <div className={`flex-grow-1 py-1 rounded fw-semibold ${step === 1 ? "bg-teal text-white shadow-sm" : "text-muted"}`}>
+            1. Options &amp; Pre-order
+          </div>
+          <div className={`flex-grow-1 py-1 rounded fw-semibold ${step === 2 ? "bg-teal text-white shadow-sm" : "text-muted"}`}>
+            2. Rules &amp; Policies
+          </div>
+          <div className={`flex-grow-1 py-1 rounded fw-semibold ${step === 3 ? "bg-teal text-white shadow-sm" : "text-muted"}`}>
+            3. Mock Payment Gateway
           </div>
         </div>
 
         {errorMsg && <div className="alert alert-danger py-2 px-3 small mb-3">{errorMsg}</div>}
 
-        {step === 1 ? (
+        {step === 1 && (
           <form onSubmit={handleProceedToRules}>
-            <h6 className="fw-bold text-navy mb-3">Reservation Dates & Headcount</h6>
             <div className="row g-3 mb-3">
               <div className="col-12 col-md-6">
                 <label className="form-label small text-muted">Check-In / Arrival Date</label>
@@ -307,6 +413,7 @@ export default function Booking() {
                   required
                 />
               </div>
+
               <div className="col-12 col-md-6">
                 <label className="form-label small text-muted">Check-Out / Departure Date</label>
                 <input
@@ -318,66 +425,121 @@ export default function Booking() {
                   required
                 />
               </div>
+
               <div className="col-12 col-md-6">
-                <label className="form-label small text-muted">{isRestaurant ? "Dining Table Guests" : "Room Guests"}</label>
+                <label className="form-label small text-muted">Number of Guests</label>
                 <input
                   type="number"
                   min="1"
-                  max="12"
+                  max="20"
                   className="form-control form-control-sm"
                   value={guests}
-                  onChange={function(e) { setGuests(Math.max(1, Number(e.target.value))); }}
+                  onChange={function(e) { setGuests(Math.max(1, parseInt(e.target.value, 10) || 1)); }}
                   required
                 />
               </div>
+
               <div className="col-12 col-md-6">
-                <label className="form-label small text-muted">Settlement Currency</label>
-                <div className="form-control form-control-sm bg-light text-muted">
-                  {curr.code} ({curr.symbol}) &bull; Equivalent to USD in calculations
-                </div>
+                <label className="form-label small text-muted">
+                  {isRestaurant ? "Seating & Table Selection" : "Room / Suite Category"}
+                </label>
+                <select
+                  className="form-select form-select-sm"
+                  value={roomType}
+                  onChange={function(e) { setRoomType(e.target.value); }}
+                >
+                  {isRestaurant ? (
+                    <>
+                      <option value="Chef's Counter Experience">Chef's Counter Experience</option>
+                      <option value="Panoramic Window Seating">Panoramic Window Seating</option>
+                      <option value="Private Alcove Booth">Private Alcove Booth</option>
+                      <option value="Outdoor Garden Terrace Table">Outdoor Garden Terrace Table</option>
+                    </>
+                  ) : isInn ? (
+                    <>
+                      <option value="Historic Hearthside Cottage Suite">Historic Hearthside Cottage Suite</option>
+                      <option value="Garden Terrace Loft Room">Garden Terrace Loft Room</option>
+                      <option value="Artisanal Timber Classic Room">Artisanal Timber Classic Room</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="Deluxe King Suite">Deluxe King Suite</option>
+                      <option value="Executive Ocean/City View Suite">Executive Ocean/City View Suite</option>
+                      <option value="Presidential Luxury Penthouse">Presidential Luxury Penthouse</option>
+                      <option value="Standard Classic Double Room">Standard Classic Double Room</option>
+                    </>
+                  )}
+                </select>
+              </div>
+
+              <div className="col-12">
+                <label className="form-label small text-muted">
+                  Dining &amp; Food Pre-order <span className="text-secondary">(Optional — can order later at venue as per mood)</span>
+                </label>
+                <select
+                  className="form-select form-select-sm"
+                  value={foodPreorder}
+                  onChange={function(e) { setFoodPreorder(e.target.value); }}
+                >
+                  <option value="Order à la carte at venue as per mood">Order à la carte at venue later (as per mood)</option>
+                  <option value="Pre-order Artisanal Breakfast Basket (+ $15 USD / guest)">Pre-order Artisanal Breakfast Basket (+ $15 USD / guest)</option>
+                  <option value="Pre-order 3-Course Regional Welcome Dinner (+ $35 USD / guest)">Pre-order 3-Course Regional Welcome Dinner (+ $35 USD / guest)</option>
+                  <option value="Pre-order Chef's Seasonal Tasting Menu (+ $50 USD / guest)">Pre-order Chef's Seasonal Tasting Menu (+ $50 USD / guest)</option>
+                </select>
               </div>
             </div>
 
             <div className="card bg-light border p-3 rounded mb-4">
-              <div className="d-flex justify-content-between small mb-1">
-                <span className="text-secondary">Base Rate ({unitLabel}):</span>
-                <span className="fw-semibold">{curr.symbol} {localBaseTotal.toLocaleString()} (~${baseTotalUSD} USD)</span>
+              <div className="d-flex align-items-center gap-2 mb-2">
+                <span className="fs-5">🎨</span>
+                <span className="fw-bold text-navy small">Local Culture &amp; Heritage Highlight</span>
               </div>
-              <div className="d-flex justify-content-between small mb-1">
-                <span className="text-secondary">Taxes & Fees (12%):</span>
-                <span className="fw-semibold">{curr.symbol} {localTaxes.toLocaleString()} (~${taxesUSD} USD)</span>
+              <div className="small text-secondary mb-1">
+                <strong>Regional Craft:</strong> {culture.handcrafts}
               </div>
-              <hr className="my-2" />
-              <div className="d-flex justify-content-between">
-                <span className="fw-bold text-navy">Estimated Grand Total:</span>
-                <span className="fw-bold text-teal">{curr.symbol} {localGrandTotal.toLocaleString()} (~${grandTotalUSD} USD)</span>
+              <div className="small text-muted">
+                <strong>Nearby Tourism:</strong> {culture.nearbyAttractions.join(" • ")}
+              </div>
+            </div>
+
+            <div className="card border p-3 rounded mb-4 bg-white">
+              <div className="d-flex justify-content-between align-items-center mb-2">
+                <span className="small text-muted">Calculated Stay Duration:</span>
+                <span className="fw-semibold small">{unitLabel}</span>
+              </div>
+              <div className="d-flex justify-content-between align-items-center mb-2">
+                <span className="small text-muted">Base Rate + Taxes:</span>
+                <span className="fw-semibold small">{curr.symbol} {localGrandTotal.toLocaleString()} (${grandTotalUSD} USD)</span>
+              </div>
+              <div className="d-flex justify-content-between align-items-center border-top pt-2">
+                <span className="fw-bold text-navy small">Advance Deposit Due Now:</span>
+                <span className="fw-bold text-teal">{curr.symbol} {advancePayableLocal.toLocaleString()} (${advancePayableUSD} USD)</span>
               </div>
             </div>
 
             <button type="submit" className="btn btn-teal w-100 py-2 fw-semibold">
-              {isCriticUser ? "Submit Critic Reservation Request" : "Proceed to Venue Rules & Policy Agreement"}
+              {isCriticUser ? "Submit Critic Reservation Request" : "Proceed to Venue Rules & Policies &rarr;"}
             </button>
           </form>
-        ) : (
-          <form onSubmit={handleRulesConfirm}>
-            <div className="alert alert-warning py-2 px-3 small mb-3">
-              <strong>Mandatory Compliance Notice:</strong> Review the venue payment policies, advance schedules, and anti-abuse cancellation rules below before confirming your reservation.
-            </div>
+        )}
 
-            <div className="card border p-3 rounded mb-3 bg-light">
-              <h6 className="fw-bold text-navy mb-2">Venue Rules & Payment Terms</h6>
-              <div className="small text-secondary mb-2">
-                <div className="mb-2"><strong>1. Payment Methods:</strong> {rules.paymentMethod}</div>
-                <div className="mb-2"><strong>2. Accepted Currencies:</strong> {rules.acceptedCurrencies} (Settlement in alternative currencies includes a {rules.currencySurcharge || "3.5% fee"}).</div>
-                <div className="mb-2"><strong>3. Advance Payment:</strong> {advancePercent}% in advance required ({curr.symbol} {advancePayableLocal.toLocaleString()} / ~${advancePayableUSD} USD). Remaining balance due at check-in.</div>
-                <div className="mb-2"><strong>4. Cancellation & Abuse Protocol:</strong> {rules.cancellationPolicy} Repeated bookings and cancellations across venues will trigger immediate user account suspension and forfeiture of advance deposits.</div>
+        {step === 2 && (
+          <form onSubmit={handleRulesConfirm}>
+            <div className="card bg-light border p-3 rounded mb-3">
+              <h6 className="fw-bold text-navy mb-2">Mandatory Venue Rules &amp; Advance Directives</h6>
+              <div className="small text-secondary mb-3">
+                <div className="mb-2"><strong>Accepted Payment Modes:</strong> {rules.paymentMethod}</div>
+                <div className="mb-2"><strong>Advance Payment Requirement:</strong> {rules.advancePercent}% deposit required</div>
+                <div className="mb-2"><strong>Accepted Currencies:</strong> {rules.acceptedCurrencies}</div>
+                <div className="mb-2"><strong>Foreign Currency Surcharge:</strong> {rules.currencySurcharge}</div>
+                <div className="mb-2"><strong>Cancellation &amp; Abuse Terms:</strong> {rules.cancellationPolicy}</div>
               </div>
               {rules.customRules && rules.customRules.length > 0 && (
-                <div className="mt-2 pt-2 border-top">
-                  <strong className="small text-dark d-block mb-1">Special Venue Directives:</strong>
+                <div>
+                  <strong className="small text-dark d-block mb-1">House Directives:</strong>
                   <ul className="small text-muted mb-0 ps-3">
                     {rules.customRules.map(function(r, idx) {
-                      return <li key={idx}>{r}</li>;
+                      return <li key={idx} className="mb-1">{r}</li>;
                     })}
                   </ul>
                 </div>
@@ -388,29 +550,154 @@ export default function Booking() {
               <input
                 className="form-check-input"
                 type="checkbox"
-                id="agreeRulesCheck"
+                id="rulesAgreeCheck"
                 checked={rulesAgreed}
                 onChange={function(e) { setRulesAgreed(e.target.checked); }}
               />
-              <label className="form-check-label small text-dark" htmlFor="agreeRulesCheck">
-                I have read, understood, and agree to abide by all venue rules, advance payment terms, and anti-abuse policies.
+              <label className="form-check-label small" htmlFor="rulesAgreeCheck">
+                I have read and agree to all venue rules, advance deposit policies, anti-abuse terms, and understand that final settlement will be calculated at the property.
               </label>
             </div>
 
             <div className="d-flex gap-2">
               <button
                 type="button"
-                className="btn btn-outline-secondary px-3 py-2"
+                className="btn btn-outline-secondary btn-sm"
                 onClick={function() { setStep(1); }}
               >
-                Back to Dates
+                &larr; Back
               </button>
               <button
                 type="submit"
                 className="btn btn-teal flex-grow-1 py-2 fw-semibold"
-                disabled={!rulesAgreed}
               >
-                Confirm &amp; Submit Booking Request to Manager
+                Confirm Booking &amp; Proceed to Payment Gateway &rarr;
+              </button>
+            </div>
+          </form>
+        )}
+
+        {step === 3 && (
+          <form onSubmit={handleProcessPayment}>
+            <div className="card border p-3 rounded mb-3 bg-light">
+              <div className="d-flex justify-content-between align-items-center mb-2">
+                <span className="small text-muted">Reservation Total:</span>
+                <span className="fw-semibold small">{curr.symbol} {localGrandTotal.toLocaleString()} (${grandTotalUSD} USD)</span>
+              </div>
+              <div className="d-flex justify-content-between align-items-center mb-1">
+                <span className="fw-bold text-navy small">Pre-Booking Advance Amount:</span>
+                <span className="fw-bold text-teal fs-6">{curr.symbol} {advancePayableLocal.toLocaleString()} (${advancePayableUSD} USD)</span>
+              </div>
+              <div className="d-flex justify-content-between align-items-center small text-muted">
+                <span>Remaining Balance Due at Venue:</span>
+                <span>{curr.symbol} {balanceDueLocal.toLocaleString()} (${balanceDueUSD} USD)</span>
+              </div>
+            </div>
+
+            <div className="alert alert-warning py-2 px-3 small mb-4 border border-warning shadow-sm">
+              <strong>Notice:</strong> This is a secure pre-booking advance deposit fee. Advance payment verification will be completed at check-in, and your final bill balance will be settled directly at the venue desk.
+            </div>
+
+            <div className="card p-3 border rounded mb-4 bg-white shadow-sm">
+              <div className="d-flex justify-content-between align-items-center mb-3">
+                <h6 className="fw-bold text-navy mb-0">Mock Payment Gateway</h6>
+                <span className="badge bg-teal">{detectedBrand}</span>
+              </div>
+
+              <div className="d-flex gap-1 mb-3">
+                {["Visa", "Mastercard", "American Express", "Discover", "RuPay", "JCB"].map(function(b) {
+                  return (
+                    <span
+                      key={b}
+                      className={`badge border small py-1 px-2 ${
+                        detectedBrand === b ? "bg-primary text-white" : "bg-light text-muted"
+                      }`}
+                      style={{ fontSize: "0.68rem" }}
+                    >
+                      {b}
+                    </span>
+                  );
+                })}
+              </div>
+
+              <div className="mb-3">
+                <label className="form-label small text-muted">Card Number</label>
+                <div className="input-group input-group-sm">
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="4111 2222 3333 4444"
+                    maxLength="19"
+                    value={cardNumber}
+                    onChange={function(e) { setCardNumber(formatCardNumber(e.target.value)); }}
+                    required
+                  />
+                  <span className="input-group-text bg-white small text-muted">
+                    {detectedBrand}
+                  </span>
+                </div>
+                <div className="form-text small" style={{ fontSize: "0.72rem" }}>
+                  Card brand is auto-detected as you type.
+                </div>
+              </div>
+
+              <div className="mb-3">
+                <label className="form-label small text-muted">Cardholder Name</label>
+                <input
+                  type="text"
+                  className="form-control form-control-sm"
+                  placeholder="e.g. John Doe"
+                  value={cardHolder}
+                  onChange={function(e) { setCardHolder(e.target.value); }}
+                  required
+                />
+              </div>
+
+              <div className="row g-2 mb-2">
+                <div className="col-6">
+                  <label className="form-label small text-muted">Expiry Date</label>
+                  <input
+                    type="text"
+                    className="form-control form-control-sm"
+                    placeholder="MM/YY"
+                    maxLength="5"
+                    value={cardExpiry}
+                    onChange={function(e) { setCardExpiry(formatExpiryDate(e.target.value)); }}
+                    required
+                  />
+                </div>
+                <div className="col-6">
+                  <label className="form-label small text-muted">CVV Security Code</label>
+                  <input
+                    type="password"
+                    className="form-control form-control-sm"
+                    placeholder="3 or 4 digits"
+                    maxLength="4"
+                    value={cardCvv}
+                    onChange={function(e) { setCardCvv(e.target.value.replace(/\D/g, "")); }}
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="d-flex gap-2">
+              <button
+                type="button"
+                className="btn btn-outline-secondary btn-sm"
+                onClick={function() { setStep(2); }}
+                disabled={isProcessingPayment}
+              >
+                &larr; Back to Rules
+              </button>
+              <button
+                type="submit"
+                className="btn btn-teal flex-grow-1 py-2 fw-semibold"
+                disabled={isProcessingPayment}
+              >
+                {isProcessingPayment
+                  ? "Securing Authorization & Completing Pre-Booking..."
+                  : `Pay ${curr.symbol} ${advancePayableLocal.toLocaleString()} (${advancePayableUSD} USD) & Confirm Booking`}
               </button>
             </div>
           </form>

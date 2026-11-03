@@ -4,6 +4,7 @@ import { AuthContext } from "../../context/AuthContext.jsx";
 import { getShared, getSession, setSession, subscribeToSync, broadcastAction } from "../../utils/storage.js";
 import { initialProperties } from "../../data/properties.js";
 import { formatPriceInfo, getVenueRules } from "../../utils/pricing.js";
+import { getVenueCulture } from "../../utils/culture.js";
 import ImagePlaceholder from "../common/ImagePlaceholder.jsx";
 import StarRating from "../common/StarRating.jsx";
 import FaqAccordion from "../common/FaqAccordion.jsx";
@@ -69,6 +70,8 @@ export default function PropertyDetails() {
   const rules = (property.rules && property.rules.paymentMethod)
     ? property.rules
     : getVenueRules(property);
+
+  const culture = getVenueCulture(property);
 
   return (
     <div className="hire-details py-3">
@@ -184,7 +187,7 @@ export default function PropertyDetails() {
             <h5 className="fw-bold text-navy mb-3">About this venue</h5>
             <p className="text-secondary small leading-relaxed">{property.description}</p>
             <hr />
-            <h6 className="fw-bold text-navy mb-2">Amenities & Services</h6>
+            <h6 className="fw-bold text-navy mb-2">Amenities &amp; Services</h6>
             <div className="d-flex flex-wrap gap-2">
               {(property.amenities || []).map(function(amenity, idx) {
                 const isUnderRepair = typeof amenity === "object" ? amenity.underRepair : false;
@@ -201,14 +204,14 @@ export default function PropertyDetails() {
             </div>
           </div>
 
-          <div className="card shadow-sm border p-4 rounded bg-white">
-            <h5 className="fw-bold text-navy mb-3">Venue Rules & Booking Policies</h5>
+          <div className="card shadow-sm border p-4 rounded bg-white mb-4">
+            <h5 className="fw-bold text-navy mb-3">Venue Rules &amp; Booking Policies</h5>
             <div className="small text-secondary mb-3">
               <div className="mb-2"><strong>Accepted Payment Modes:</strong> {rules.paymentMethod}</div>
               <div className="mb-2"><strong>Accepted Currencies:</strong> {rules.acceptedCurrencies}</div>
               <div className="mb-2"><strong>Advance Payment Requirement:</strong> {rules.advancePercent}% deposit required</div>
               <div className="mb-2"><strong>Foreign Currency Policy:</strong> {rules.currencySurcharge}</div>
-              <div className="mb-2"><strong>Cancellation & Abuse Policy:</strong> {rules.cancellationPolicy}</div>
+              <div className="mb-2"><strong>Cancellation &amp; Abuse Policy:</strong> {rules.cancellationPolicy}</div>
             </div>
             {rules.customRules && rules.customRules.length > 0 && (
               <div>
@@ -220,6 +223,43 @@ export default function PropertyDetails() {
                 </ul>
               </div>
             )}
+          </div>
+
+          <div className="card shadow-sm border p-4 rounded bg-white">
+            <div className="d-flex align-items-center gap-2 mb-2">
+              <span className="fs-5">🎨</span>
+              <h5 className="fw-bold text-navy mb-0">Local Culture, Artisanal Handworks &amp; Tourism</h5>
+            </div>
+            <p className="small text-muted mb-3">
+              Promoting regional craftsmanship, local heritage artworks, and community tourism around {property.city}, {property.country}.
+            </p>
+            <div className="row g-3 small">
+              <div className="col-12 col-md-6">
+                <div className="p-3 rounded bg-light border h-100">
+                  <div className="fw-bold text-teal mb-1">🏺 Local Handworks &amp; Artisanal Craft</div>
+                  <div className="text-secondary">{culture.handcrafts}</div>
+                </div>
+              </div>
+              <div className="col-12 col-md-6">
+                <div className="p-3 rounded bg-light border h-100">
+                  <div className="fw-bold text-teal mb-1">🖼️ Regional Artworks &amp; Heritage Exhibit</div>
+                  <div className="text-secondary">{culture.artworks}</div>
+                </div>
+              </div>
+              <div className="col-12">
+                <div className="p-3 rounded bg-light border">
+                  <div className="fw-bold text-navy mb-1">📍 Nearby Localities &amp; Tourism Attractions</div>
+                  <ul className="mb-2 ps-3 text-secondary">
+                    {culture.nearbyAttractions.map(function(attraction, idx) {
+                      return <li key={idx} className="mb-1">{attraction}</li>;
+                    })}
+                  </ul>
+                  <div className="small text-muted border-top pt-2">
+                    <strong>Signature Cultural Experience:</strong> {culture.signatureExperience}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
