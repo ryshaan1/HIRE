@@ -20,6 +20,7 @@ export default function Signup() {
   const [licenceNumber, setLicenceNumber] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -101,7 +102,24 @@ export default function Signup() {
             </div>
           )}
           <div className="mb-3">
-            <input type="password" className="form-control form-control-sm" placeholder={role === "manager" ? "Password (hotel@123 or venue password)" : "Password (min 6 characters)"} value={password} onChange={function(e) { setPassword(e.target.value); }} />
+            <div className="d-flex justify-content-between align-items-center mb-1">
+              <label className="form-label small text-muted mb-0">Account Password</label>
+              <button
+                type="button"
+                className="btn btn-link p-0 small text-decoration-none text-muted"
+                style={{ fontSize: "0.75rem" }}
+                onClick={function() { setShowPassword(!showPassword); }}
+              >
+                {showPassword ? "Hide Password" : "Show Password"}
+              </button>
+            </div>
+            <input
+              type={showPassword ? "text" : "password"}
+              className="form-control form-control-sm"
+              placeholder={role === "manager" ? "Password (hotel@123 or venue password)" : "Password (min 6 characters)"}
+              value={password}
+              onChange={function(e) { setPassword(e.target.value); }}
+            />
           </div>
           <button type="submit" className="btn btn-teal w-100 py-2 fw-semibold mb-2">Create Account</button>
           <div className="text-center"><Link to="/login" className="small text-teal text-decoration-none">Already registered? Sign in</Link></div>
